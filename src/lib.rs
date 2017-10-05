@@ -104,11 +104,11 @@ trait DbIterator {
         Selection {input: self, predicate: predicate}
     }
 
-//    fn projection(self, columns: Vec<usize>) -> Projection<Self>
-//        where Self: Sized,
-//    {
-//        Projection {input: self, columns: columns}
-//    }
+    fn projection(self, columns: Vec<usize>) -> Projection<Self>
+        where Self: Sized,
+    {
+        Projection {input: self, columns: columns}
+    }
 }
 
 pub struct Scan<I> {
@@ -139,20 +139,30 @@ impl <I: DbIterator, P> DbIterator for Selection<I,P>
     }
 }
 
-//pub struct Projection<I> {
-//    input: I,
-//    columns: Vec<usize>,
-//}
-//
-//impl <I: DbIterator> DbIterator for Projection<I> 
-//    where Self: Sized,
-//{
-//    fn next(&mut self) -> Option<Tuple> {
-//        // TODO
-//        self.input.next()
-//    }
-//}
+#[derive(Debug)]
+pub struct Projection<I> {
+    input: I,
+    columns: Vec<usize>,
+}
 
+impl <I: DbIterator> DbIterator for Projection<I> 
+    where Self: Sized,
+{
+    fn next(&mut self) -> Option<Tuple> {
+        // TODO assert that all cols exist
+
+        if let Some(tuple) = self.input.next() {
+            let new_data: Vec<Vec<_>> = self.columns.iter().map(|i| {
+                tuple[*i].to_vec() // try not to allocate?
+            }).collect();
+            Some(Tuple::new(new_data))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct TestSource {
     source: Vec<Tuple>,
     i: usize,
@@ -238,11 +248,72 @@ mod tests {
     }
 
     #[test]
+    fn test_projection() {
+        let tuples = make_tuples();
+        let test_source = TestSource {
+            source: tuples.clone(),
+            i: 0,
+        };
+        let mut projection_iter = test_source.projection(vec![1]);
+        let r0 = Tuple::new(
+            vec![
+                vec![0u8, 2],
+            ]
+        );
+        let r1 = Tuple::new(
+            vec![
+                vec![0u8, 66],
+            ]
+        );
+        let r2 = Tuple::new(
+            vec![
+                vec![0u8, 222],
+            ]
+        );
+        let res_tuples = vec![r0, r1, r2];
+        assert_eq!(projection_iter.next(), Some(res_tuples[0].clone()));
+        assert_eq!(projection_iter.next(), Some(res_tuples[1].clone()));
+        assert_eq!(projection_iter.next(), Some(res_tuples[2].clone()));
+        assert_eq!(projection_iter.next(), None);
+    }
+
+    #[test]
+    fn test_projection_selection() {
+        let tuples = make_tuples();
+        let test_source = TestSource {
+            source: tuples.clone(),
+            i: 0,
+        };
+        let mut query = test_source
+            .projection(vec![1])
+            .selection(|t| t[0][1] < 100);
+
+        let r0 = Tuple::new(
+            vec![
+                vec![0u8, 2],
+            ]
+        );
+        let r1 = Tuple::new(
+            vec![
+                vec![0u8, 66],
+            ]
+        );
+        let res_tuples = vec![r0, r1];
+        assert_eq!(query.next(), Some(res_tuples[0].clone()));
+        assert_eq!(query.next(), Some(res_tuples[1].clone()));
+        assert_eq!(query.next(), None);
+    }
+
+    #[test]
     fn test_display_with_type() {
         use DataType::*;
 
         let schema = Schema {
-            column_names: vec!["test".to_owned(), "number_test".to_owned(), "testy".to_owned()],
+            column_names: vec![
+                "test".to_owned(),
+                "number_test".to_owned(),
+                "testy".to_owned(),
+            ],
             column_types: vec![Text, Integer, Text],
         };
         let tuples = make_tuples();
