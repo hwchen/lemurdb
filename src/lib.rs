@@ -1,13 +1,25 @@
+#![recursion_limit = "1024"]
 // TODO:
 // - constrain to tuple type?
 // - relation metadata
-// - tuple type: should it be 
+// - figure out how to handle tuples
+//
+// - do a filescan
+// - next up: sort, distinct, aggregations
 
 extern crate byteorder;
+extern crate csv;
+#[macro_use]
+extern crate error_chain;
+
+pub mod error;
+pub mod io;
 
 use byteorder::{ReadBytesExt, BigEndian};
 use std::io::Cursor;
 use std::ops::Index;
+
+use error::*;
 
 #[derive(Debug, Clone, PartialEq)]
 struct Tuple{
@@ -91,6 +103,8 @@ pub enum DataType {
     Text, //String
 }
 
+// Executor Start!
+
 trait DbIterator {
     fn next(&mut self) -> Option<Tuple>;
 
@@ -109,6 +123,14 @@ trait DbIterator {
     {
         Projection {input: self, columns: columns}
     }
+
+//    fn sort(self, column:usize) -> Sort<Self>
+//        where Self: Sized,
+//    {
+//        // sort here, on initialization.
+//        //
+//        Sort {input: self, columns: columns}
+//    }
 }
 
 pub struct Scan<I> {
@@ -161,6 +183,33 @@ impl <I: DbIterator> DbIterator for Projection<I>
         }
     }
 }
+
+//// Sort by only one column first
+//
+//pub struct Sort<I> {
+//    input: I,
+//    column: usize,
+//    sorted: bool,
+//}
+//
+//impl <I: DbIterator> DbIterator for Sort<I> 
+//    where Self: Sized,
+//{
+//    fn next(&mut self) -> Option<Tuple> {
+//        // assert that col exists?
+//
+//        // if not sorted, then sort
+//        // is there some way to go straight to sort before next()?
+//        if let Some(tuple) = self.input.next() {
+//            let new_data: Vec<Vec<_>> = self.columns.iter().map(|i| {
+//                tuple[*i].to_vec() // try not to allocate?
+//            }).collect();
+//            Some(Tuple::new(new_data))
+//        } else {
+//            None
+//        }
+//    }
+//}
 
 #[derive(Debug)]
 pub struct TestSource {
@@ -286,7 +335,7 @@ mod tests {
         };
         let mut query = test_source
             .projection(vec![1])
-            .selection(|t| t[0][1] < 100);
+            .selection(|t| t[0][1] < 100); // will need to translate according to type
 
         let r0 = Tuple::new(
             vec![
