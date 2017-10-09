@@ -39,7 +39,11 @@ fn main() {
 
 fn run() -> Result<()> {
     let f_in = File::open("ratings.csv")?;
-    let f_out = File::create("test.lmr")?;
-    lemurdb::io::import_from_csv(f_in, f_out)?;
+    let mut data_buf = Vec::new();
+    lemurdb::io::import_from_csv(f_in, &mut data_buf)?;
+    println!("{:?}", &data_buf[0..10]);
+
+//    let f_out = File::create("test.lmr")?;
+//    lemurdb::io::import_from_csv(f_in, f_out)?;
     Ok(())
 }
