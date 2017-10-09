@@ -14,83 +14,18 @@ extern crate error_chain;
 
 pub mod error;
 pub mod io;
-
-use byteorder::{ReadBytesExt, BigEndian};
-use std::io::Cursor;
-use std::ops::Index;
+pub mod projection;
+pub mod scan;
+pub mod selection;
+pub mod simplesort;
+pub mod tuple;
 
 use error::*;
-
-#[derive(Debug, Clone, PartialEq)]
-struct Tuple{
-    data: Vec<u8>,
-    indexes: Vec<usize>,
-}
-
-impl Tuple {
-    // simple init for testing purposes
-    pub fn new(data: Vec<Vec<u8>>) -> Self {
-        // index of next value is calculated by adding length
-        // of current value. So pop last value of indexes, it's
-        // the index for a value that doesn't exist
-        let mut buf = vec![];
-        let mut i_count = 0;
-        let mut indexes = vec![i_count]; // TODO fix for empty data case
-        for xs in data.iter() {
-            i_count += xs.len();
-            indexes.push(i_count);
-            buf.extend_from_slice(xs);
-        }
-        let _ = indexes.pop(); // 
-        Tuple {
-            data: buf,
-            indexes: indexes,
-        }
-    }
-    pub fn to_string(self, schema: &Schema) -> String {
-        assert_eq!(schema.column_types.len(), self.indexes.len());
-
-        let fields = (0..self.indexes.len()).map(|i| {
-            display_with_type(&self[i], &schema.column_types[i])
-            }).collect::<Vec<_>>();
-
-        fields.join(", ")
-    }
-}
-
-fn display_with_type(data: &[u8], data_type: &DataType) -> String {
-    match *data_type {
-        DataType::Integer => {
-            // read it into u32
-            let mut s = String::new();
-            let mut rdr = Cursor::new(data);
-            let int = rdr.read_u16::<BigEndian>().unwrap();
-            s.push_str(&int.to_string()[..]);
-            s
-        },
-        DataType::Float => {
-            // read it into f32
-            let mut s = String::new();
-            s.push_str("It's a float");
-            s
-        },
-        DataType::Text => {
-            String::from_utf8(data.to_vec()).unwrap()
-        },
-    }
-}
-
-impl Index<usize> for Tuple {
-    type Output = [u8];
-
-    fn index(&self, index: usize) -> &Self::Output {
-        if index == self.indexes.len() - 1 {
-            &self.data[self.indexes[index]..]
-        } else {
-            &self.data[self.indexes[index]..self.indexes[index+1]]
-        }
-    }
-}
+use projection::Projection;
+use scan::Scan;
+use selection::Selection;
+use simplesort::SimpleSort;
+use tuple::Tuple;
 
 pub struct Schema {
     column_names: Vec<String>,
@@ -103,7 +38,7 @@ pub enum DataType {
     Text, //String
 }
 
-// Executor Start!
+// The Executor
 
 trait DbIterator {
     fn next(&mut self) -> Option<Tuple>;
@@ -124,7 +59,7 @@ trait DbIterator {
         Projection {input: self, columns: columns}
     }
 
-//    fn sort(self, column:usize) -> Sort<Self>
+//    fn simplesort(self, column:usize) -> SimpleSort<Self>
 //        where Self: Sized,
 //    {
 //        // sort here, on initialization.
@@ -132,84 +67,6 @@ trait DbIterator {
 //        Sort {input: self, columns: columns}
 //    }
 }
-
-pub struct Scan<I> {
-    input: I,
-}
-
-impl <I: DbIterator> DbIterator for Scan<I> {
-    fn next(&mut self) -> Option<Tuple> {
-        self.input.next()
-    }
-}
-
-pub struct Selection<I,P> {
-    input: I,
-    predicate: P,
-}
-
-impl <I: DbIterator, P> DbIterator for Selection<I,P> 
-    where P: FnMut(&Tuple) -> bool,
-{
-    fn next(&mut self) -> Option<Tuple> {
-        while let Some(x) = self.input.next() {
-            if (self.predicate)(&x) {
-                return Some(x)
-            }
-        }
-        None
-    }
-}
-
-#[derive(Debug)]
-pub struct Projection<I> {
-    input: I,
-    columns: Vec<usize>,
-}
-
-impl <I: DbIterator> DbIterator for Projection<I> 
-    where Self: Sized,
-{
-    fn next(&mut self) -> Option<Tuple> {
-        // TODO assert that all cols exist
-
-        if let Some(tuple) = self.input.next() {
-            let new_data: Vec<Vec<_>> = self.columns.iter().map(|i| {
-                tuple[*i].to_vec() // try not to allocate?
-            }).collect();
-            Some(Tuple::new(new_data))
-        } else {
-            None
-        }
-    }
-}
-
-//// Sort by only one column first
-//
-//pub struct Sort<I> {
-//    input: I,
-//    column: usize,
-//    sorted: bool,
-//}
-//
-//impl <I: DbIterator> DbIterator for Sort<I> 
-//    where Self: Sized,
-//{
-//    fn next(&mut self) -> Option<Tuple> {
-//        // assert that col exists?
-//
-//        // if not sorted, then sort
-//        // is there some way to go straight to sort before next()?
-//        if let Some(tuple) = self.input.next() {
-//            let new_data: Vec<Vec<_>> = self.columns.iter().map(|i| {
-//                tuple[*i].to_vec() // try not to allocate?
-//            }).collect();
-//            Some(Tuple::new(new_data))
-//        } else {
-//            None
-//        }
-//    }
-//}
 
 #[derive(Debug)]
 pub struct TestSource {
