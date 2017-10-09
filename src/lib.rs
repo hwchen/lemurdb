@@ -43,7 +43,7 @@ pub enum DataType {
 
 // The Executor
 
-trait DbIterator {
+pub trait DbIterator {
     fn next(&mut self) -> Option<Tuple>;
 
     fn scan(self) -> Scan<Self> where Self: Sized {

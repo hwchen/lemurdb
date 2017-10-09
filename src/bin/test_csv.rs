@@ -4,8 +4,9 @@
 extern crate error_chain;
 extern crate lemurdb;
 
-use lemurdb::Schema;
+use lemurdb::{Schema, DbIterator};
 use lemurdb::io::CsvSource;
+use std::io::Read;
 use std::fs::File;
 
 mod error {
@@ -40,16 +41,23 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    let f_in = File::open("ratings.csv")?;
-
     use lemurdb::DataType::*;
-    CsvSource::new(
-        f_in,
-        Schema{
-            column_names: vec!["userId".to_owned(), "movieId".to_owned(), "rating".to_owned(), "timestamp".to_owned()],
-            column_types: vec![Integer, Integer, Float, Integer],
-        },
-    );
+
+    let mut f_in = File::open("ratings.csv")?;
+
+    let schema = Schema{
+        column_names: vec!["userId".to_owned(), "movieId".to_owned(), "rating".to_owned(), "timestamp".to_owned()],
+        column_types: vec![Integer, Integer, Float, Integer],
+    };
+
+    let mut query = CsvSource::new(f_in, schema.clone());
+
+    let mut count = 0;
+    while let Some(record) = query.next() {
+        println!("{:?}", record.to_string(&schema));
+        count += 1;
+        if count >= 10 { break; }
+    }
 
 //    let f_out = File::create("test.lmr")?;
 //    lemurdb::io::import_from_csv(f_in, f_out)?;
