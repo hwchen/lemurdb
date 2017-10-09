@@ -5,5 +5,7 @@ error_chain! {
         Io(::std::io::Error);
         Csv(csv::Error);
         Utf8(::std::string::FromUtf8Error);
+        ParseInt(::std::num::ParseIntError);
+        ParseFloat(::std::num::ParseFloatError);
     }
 }
