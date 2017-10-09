@@ -5,12 +5,16 @@ extern crate error_chain;
 extern crate lemurdb;
 
 use std::fs::File;
-use std::io::{Read, stdout};
 
 mod error {
+    use lemurdb;
+
     error_chain!{
         foreign_links {
             Io(::std::io::Error);
+        }
+        links {
+            Lemur(lemurdb::error::Error, lemurdb::error::ErrorKind);
         }
     }
 }
@@ -34,7 +38,8 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    let f = File::open("ratings.csv")?;
-    lemurdb::io::import_from_csv(f, stdout());
+    let f_in = File::open("ratings.csv")?;
+    let f_out = File::create("test.lmr")?;
+    lemurdb::io::import_from_csv(f_in, f_out)?;
     Ok(())
 }

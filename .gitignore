@@ -2,3 +2,5 @@
 **/*.rs.bk
 Cargo.lock
 ratings.csv
+test_ratings.csv
+test.lmr
