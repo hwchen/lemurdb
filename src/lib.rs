@@ -25,7 +25,7 @@ use limit::Limit;
 use projection::Projection;
 use scan::Scan;
 use selection::Selection;
-use simplesort::SimpleSort;
+use simplesort::{SimpleSort, SortOrder};
 use tuple::Tuple;
 
 #[derive(Debug, Clone)]
@@ -69,13 +69,19 @@ pub trait DbIterator {
         Projection {input: self, columns: columns}
     }
 
-    fn simplesort(self, sort_on_col:usize, sort_on_type: DataType) -> SimpleSort<Self>
+    fn simplesort(
+        self,
+        sort_on_col:usize,
+        sort_on_type: DataType,
+        sort_order: SortOrder,
+    ) -> SimpleSort<Self>
         where Self: Sized,
     {
         SimpleSort::new(
             self,
             sort_on_col,
             sort_on_type,
+            sort_order,
         )
     }
 }

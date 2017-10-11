@@ -6,6 +6,7 @@ extern crate lemurdb;
 
 use lemurdb::{Schema, DataType, DbIterator};
 use lemurdb::io::CsvSource;
+use lemurdb::simplesort::SortOrder;
 use std::fs::File;
 
 mod error {
@@ -50,8 +51,8 @@ fn run() -> Result<()> {
     };
 
     let mut query = CsvSource::new(f_in, schema.clone())
-        .simplesort(2, DataType::Float)
-        .limit(10);
+        .simplesort(2, DataType::Float, SortOrder::Descending)
+        .limit(50);
 
     while let Some(record) = query.next() {
         println!("{:?}", record.to_string(&schema));
