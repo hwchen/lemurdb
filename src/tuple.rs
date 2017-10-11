@@ -43,6 +43,14 @@ impl Tuple {
     }
 }
 
+impl Tuple {
+    pub fn get_parse<T>(&self, col: usize) -> Result<T>
+        where T: FromTupleField
+    {
+        FromTupleField::from_tuple_field(&self[col])
+    }
+}
+
 pub fn display_with_type(data: &[u8], data_type: &DataType) -> Result<String> {
     match *data_type {
         DataType::SmallInt => {
@@ -140,3 +148,47 @@ impl Tuple {
     }
 }
 
+pub trait FromTupleField {
+    fn from_tuple_field(b: &[u8]) -> Result<Self>
+        where Self: Sized;
+}
+
+impl FromTupleField for u16 {
+    fn from_tuple_field(field: &[u8]) -> Result<u16> {
+        if field.len() != 2 {
+            return Err("data has wrong number of bytes".into());
+        }
+        let mut rdr = Cursor::new(field);
+        rdr.read_u16::<BigEndian>()
+            .chain_err(|| "Error converting field")
+    }
+}
+
+impl FromTupleField for u32 {
+    fn from_tuple_field(field: &[u8]) -> Result<u32> {
+        if field.len() != 4 {
+            return Err("data has wrong number of bytes".into());
+        }
+        let mut rdr = Cursor::new(field);
+        rdr.read_u32::<BigEndian>()
+            .chain_err(|| "Error converting field")
+    }
+}
+
+impl FromTupleField for f32 {
+    fn from_tuple_field(field: &[u8]) -> Result<f32> {
+        if field.len() != 4 {
+            return Err("data has wrong number of bytes".into());
+        }
+        let mut rdr = Cursor::new(field);
+        rdr.read_f32::<BigEndian>()
+            .chain_err(|| "Error converting field")
+    }
+}
+
+impl FromTupleField for String {
+    fn from_tuple_field(field: &[u8]) -> Result<String> {
+        String::from_utf8(field.to_vec())
+            .chain_err(|| "Error converting field")
+    }
+}
