@@ -1,29 +1,41 @@
-use ::DbIterator;
+use ::{DbIterator, DataType};
 use ::tuple::Tuple;
 
 // Sort by only one column first
 
 pub struct SimpleSort<I> {
     pub input: I,
-    pub column: usize,
+    //pub buffer: Vec<Tuple>,
+    //pub sort_on_col: usize, // currently only sort on one column
+    //pub sort_on_type: DataType, // currently only sort on one column
+    output: ::std::vec::IntoIter<Tuple>,
+}
+
+impl<I: DbIterator> SimpleSort<I> {
+    pub fn new(
+        mut input: I, // input iterator
+        sort_on_col: usize, // currently only one column at a time
+        sort_on_type: DataType,
+        ) -> Self
+    {
+        let mut buf = Vec::new(); // implement iterator to make this simpler?
+        while let Some(tup) = input.next() {
+            buf.push(tup);
+        }
+        //sort
+
+        SimpleSort {
+            input: input,
+            output: buf.into_iter(),
+        }
+    }
 }
 
 impl <I: DbIterator> DbIterator for SimpleSort<I>
     where Self: Sized,
 {
     fn next(&mut self) -> Option<Tuple> {
-        // assert that col exists?
-
-        // TODO this isn't sorting yet...
-//        if let Some(tuple) = self.input.next() {
-//            let new_data: Vec<Vec<_>> = self.columns.iter().map(|i| {
-//                tuple[*i].to_vec() // try not to allocate?
-//            }).collect();
-//            Some(Tuple::new(new_data))
-//        } else {
-//            None
-//        }
-        None
+        self.output.next()
     }
 }
 

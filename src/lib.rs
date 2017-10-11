@@ -14,13 +14,14 @@ extern crate error_chain;
 
 pub mod error;
 pub mod io;
+pub mod limit;
 pub mod projection;
 pub mod scan;
 pub mod selection;
 pub mod simplesort;
 pub mod tuple;
 
-use error::*;
+use limit::Limit;
 use projection::Projection;
 use scan::Scan;
 use selection::Selection;
@@ -50,6 +51,12 @@ pub trait DbIterator {
         Scan {input: self}
     }
 
+    fn limit(self, limit: usize) -> Limit<Self>
+        where Self: Sized,
+    {
+        Limit {input: self, limit: limit, count: 0,}
+    }
+
     fn selection<P>(self, predicate: P) -> Selection<Self, P>
         where Self: Sized, P: FnMut(&Tuple) -> bool,
     {
@@ -62,13 +69,15 @@ pub trait DbIterator {
         Projection {input: self, columns: columns}
     }
 
-//    fn simplesort(self, column:usize) -> SimpleSort<Self>
-//        where Self: Sized,
-//    {
-//        // sort here, on initialization.
-//        //
-//        Sort {input: self, columns: columns}
-//    }
+    fn simplesort(self, sort_on_col:usize, sort_on_type: DataType) -> SimpleSort<Self>
+        where Self: Sized,
+    {
+        SimpleSort::new(
+            self,
+            sort_on_col,
+            sort_on_type,
+        )
+    }
 }
 
 #[derive(Debug)]

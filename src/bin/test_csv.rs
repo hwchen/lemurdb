@@ -6,7 +6,6 @@ extern crate lemurdb;
 
 use lemurdb::{Schema, DbIterator};
 use lemurdb::io::CsvSource;
-use std::io::Read;
 use std::fs::File;
 
 mod error {
@@ -43,7 +42,7 @@ fn main() {
 fn run() -> Result<()> {
     use lemurdb::DataType::*;
 
-    let mut f_in = File::open("ratings.csv")?;
+    let f_in = File::open("ratings.csv")?;
 
     let schema = Schema{
         column_names: vec!["userId".to_owned(), "movieId".to_owned(), "rating".to_owned(), "timestamp".to_owned()],
@@ -56,7 +55,7 @@ fn run() -> Result<()> {
     while let Some(record) = query.next() {
         println!("{:?}", record.to_string(&schema));
         count += 1;
-        if count >= 10 { break; }
+        if count >= 10 { break; } // limit 10
     }
 
 //    let f_out = File::create("test.lmr")?;

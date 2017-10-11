@@ -1,10 +1,7 @@
-use csv::{self, ReaderBuilder, StringRecord, StringRecordsIntoIter};
-use std::fs::File;
-use std::io::{Read, Write, BufWriter};
+use csv::{ReaderBuilder, StringRecordsIntoIter};
+use std::io::{Read};
 
-use ::{DbIterator, Schema, DataType};
-use error::*;
-use scan::Scan;
+use ::{DbIterator, Schema};
 use tuple::Tuple;
 
 pub struct CsvSource<R: Read> {
@@ -14,7 +11,7 @@ pub struct CsvSource<R: Read> {
 
 impl<R: Read> CsvSource<R> {
     pub fn new (rdr: R, schema: Schema) -> Self {
-        let mut rdr = ReaderBuilder::new()
+        let rdr = ReaderBuilder::new()
             .has_headers(true)
             .from_reader(rdr)
             .into_records();
