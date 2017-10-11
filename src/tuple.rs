@@ -43,14 +43,6 @@ impl Tuple {
     }
 }
 
-impl Tuple {
-    pub fn get_parse<T>(&self, col: usize) -> Result<T>
-        where T: FromTupleField
-    {
-        FromTupleField::from_tuple_field(&self[col])
-    }
-}
-
 pub fn display_with_type(data: &[u8], data_type: &DataType) -> Result<String> {
     match *data_type {
         DataType::SmallInt => {
@@ -192,3 +184,17 @@ impl FromTupleField for String {
             .chain_err(|| "Error converting field")
     }
 }
+
+pub fn field_parse<T: FromTupleField>(field: &[u8]) -> Result<T> {
+    FromTupleField::from_tuple_field(field)
+}
+
+impl Tuple {
+    pub fn get_parse<T>(&self, col: usize) -> Result<T>
+        where T: FromTupleField
+    {
+        let field = &self[col];
+        field_parse::<T>(field)
+    }
+}
+
