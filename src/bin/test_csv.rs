@@ -4,7 +4,7 @@
 extern crate error_chain;
 extern crate lemurdb;
 
-use lemurdb::{Schema, DbIterator};
+use lemurdb::{Schema, DataType, DbIterator};
 use lemurdb::io::CsvSource;
 use std::fs::File;
 
@@ -49,13 +49,12 @@ fn run() -> Result<()> {
         column_types: vec![Integer, Integer, Float, Integer],
     };
 
-    let mut query = CsvSource::new(f_in, schema.clone());
+    let mut query = CsvSource::new(f_in, schema.clone())
+        .simplesort(2, DataType::Float)
+        .limit(10);
 
-    let mut count = 0;
     while let Some(record) = query.next() {
         println!("{:?}", record.to_string(&schema));
-        count += 1;
-        if count >= 10 { break; } // limit 10
     }
 
 //    let f_out = File::create("test.lmr")?;
