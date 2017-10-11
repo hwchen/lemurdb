@@ -1,6 +1,7 @@
 use ::DbIterator;
 use ::tuple::Tuple;
 
+#[derive(Debug, Clone)]
 pub struct Limit<I> {
     pub count: usize,
     pub limit: usize,

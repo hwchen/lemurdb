@@ -1,7 +1,7 @@
 use ::DbIterator;
 use ::tuple::Tuple;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Projection<I> {
     pub input: I,
     pub columns: Vec<usize>,

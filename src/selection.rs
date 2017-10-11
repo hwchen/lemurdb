@@ -1,6 +1,7 @@
 use ::DbIterator;
 use ::tuple::Tuple;
 
+#[derive(Debug, Clone)]
 pub struct Selection<I,P> {
     pub input: I,
     pub predicate: P,

@@ -14,6 +14,7 @@ pub enum SortOrder {
 
 // Sort by only one column first
 
+#[derive(Debug, Clone)]
 pub struct SimpleSort<I> {
     //buffer: Vec<Tuple>,
     //sort_on_col: usize, // currently only sort on one column
