@@ -53,7 +53,7 @@ fn run() -> Result<()> {
 
     // Test sort and limit
 //    let mut query = CsvSource::new(f_in, schema.clone())
-//        .simplesort(2, DataType::Float, SortOrder::Descending)
+//        .simplesort(1, DataType::Integer, SortOrder::Ascending)
 //        .limit(50);
 //
 //    while let Some(record) = query.next() {
@@ -63,11 +63,12 @@ fn run() -> Result<()> {
     // test overall aggregate
     let f_in = File::open("ratings.csv")?;
     let final_schema = Schema{
-        column_names: vec!["rating count".to_owned()],
-        column_types: vec![Integer],
+        column_names: vec!["movie_id".to_owned(), "rating count".to_owned()],
+        column_types: vec![Integer, Integer],
     };
     let mut query = CsvSource::new(f_in, schema.clone())
-        .aggregate(AggregateType::Count, 2, DataType::Float, None);
+        .simplesort(1, DataType::Integer, SortOrder::Ascending)
+        .aggregate(AggregateType::Count, 2, DataType::Float, Some(1));
 
     while let Some(record) = query.next() {
         println!("{:?}", record.to_string(&final_schema));

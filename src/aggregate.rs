@@ -1,3 +1,4 @@
+// Make macros!
 use ::{DbIterator, DataType};
 use ::tuple::{Tuple, ToTupleField};
 
@@ -13,13 +14,14 @@ pub enum AggregateType {
 #[derive(Debug, Clone)]
 pub struct Aggregate<I> {
     // internal state
-    buffer: Vec<Tuple>,
+    previous_tuple: Option<Tuple>, // for groupby, tracking to allow comparing.
     is_done: bool,
+    first_time: bool,
     // intitialize
     input: I,
     aggregation: AggregateType,
-    aggregate_col: usize,
-    aggregate_col_type: DataType,
+    agg_col: usize,
+    agg_col_type: DataType,
     group_by: Option<usize>,
 }
 
@@ -33,12 +35,13 @@ impl<I: DbIterator> Aggregate<I> {
         ) -> Self
     {
         Aggregate {
-            buffer: Vec::new(),
+            previous_tuple: None,
             is_done: false,
+            first_time: true,
             input: input,
             aggregation: aggregation,
-            aggregate_col: aggregate_col,
-            aggregate_col_type: aggregate_col_type,
+            agg_col: aggregate_col,
+            agg_col_type: aggregate_col_type,
             group_by: group_by,
         }
     }
@@ -48,7 +51,7 @@ impl <I: DbIterator> DbIterator for Aggregate<I>
     where Self: Sized,
 {
     fn next(&mut self) -> Option<Tuple> {
-        if self.is_done {
+        if self.is_done { // is_done only needed for aggregate_all
             return None
         } else {
             if self.group_by.is_none() {
@@ -56,7 +59,7 @@ impl <I: DbIterator> DbIterator for Aggregate<I>
                 self.is_done = true;
                 return Some(res)
             } else {
-                return None;  // TODO fill in group_by
+                return self.aggregate_group();
             }
         }
     }
@@ -75,11 +78,11 @@ impl<I: DbIterator> Aggregate<I> {
             }
             Sum => {
                 use DataType::*;
-                match self.aggregate_col_type {
+                match self.agg_col_type {
                     SmallInt => {
                         let mut sum = 0u16;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                         }
                         Tuple::new(vec![sum.to_tuple_field()])
@@ -87,7 +90,7 @@ impl<I: DbIterator> Aggregate<I> {
                     Integer => {
                         let mut sum = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                         }
                         Tuple::new(vec![sum.to_tuple_field()])
@@ -95,7 +98,7 @@ impl<I: DbIterator> Aggregate<I> {
                     Float => {
                         let mut sum = 0f32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                         }
                         Tuple::new(vec![sum.to_tuple_field()])
@@ -107,12 +110,12 @@ impl<I: DbIterator> Aggregate<I> {
             },
             Avg => {
                 use DataType::*;
-                match self.aggregate_col_type {
+                match self.agg_col_type {
                     SmallInt => {
                         let mut sum = 0u16;
                         let mut count = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                             count += 1;
                         }
@@ -123,7 +126,7 @@ impl<I: DbIterator> Aggregate<I> {
                         let mut sum = 0u32;
                         let mut count = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                             count += 1;
                         }
@@ -134,7 +137,7 @@ impl<I: DbIterator> Aggregate<I> {
                         let mut sum = 0f32;
                         let mut count = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                             count += 1;
                         }
@@ -146,6 +149,118 @@ impl<I: DbIterator> Aggregate<I> {
                     },
                 }
             },
+        }
+    }
+
+    fn aggregate_group(&mut self) -> Option<Tuple> {
+        use AggregateType::*;
+        match self.aggregation {
+            Count => {
+                // If this fn is called, it means there's at least
+                // one more tuple. Check end condition
+                let mut count = 1u32;
+
+                // initialize the first time through
+                if self.first_time {
+                    self.previous_tuple = self.input.next();
+                    self.first_time = false;
+                }
+
+                while let Some(tuple) = self.input.next() {
+                    // previous tuple is Some, because of check from above,
+                    // so it's ok to unwrap.
+                    // Group is done, send back the agg
+                    // At this moment, previous_tuple is the first
+                    // tuple of the next group
+                    if tuple[self.group_by.unwrap()] != self.previous_tuple.as_ref().unwrap()[self.group_by.unwrap()] {
+                        self.previous_tuple = Some(tuple);
+                        let label = self.previous_tuple.clone().unwrap();
+                        return Some(Tuple::new(vec![
+                            label[self.group_by.unwrap()].to_vec(),
+                            count.to_tuple_field(),
+                        ]));
+                    } else {
+                        count += 1;
+                    }
+                }
+                None
+            }
+            // TODO implement group by for below this line.
+            // Use macros?
+//            Sum => {
+//                use DataType::*;
+//                match self.agg_col_type {
+//                    SmallInt => {
+//                        let mut sum = 0u16;
+//                        while let Some(tuple) = self.input.next() {
+//                            sum += tuple.get_parse(self.agg_col)
+//                                .expect("internal bug on bad parse of field");
+//                        }
+//                        Tuple::new(vec![sum.to_tuple_field()])
+//                    },
+//                    Integer => {
+//                        let mut sum = 0u32;
+//                        while let Some(tuple) = self.input.next() {
+//                            sum += tuple.get_parse(self.agg_col)
+//                                .expect("internal bug on bad parse of field");
+//                        }
+//                        Tuple::new(vec![sum.to_tuple_field()])
+//                    },
+//                    Float => {
+//                        let mut sum = 0f32;
+//                        while let Some(tuple) = self.input.next() {
+//                            sum += tuple.get_parse(self.agg_col)
+//                                .expect("internal bug on bad parse of field");
+//                        }
+//                        Tuple::new(vec![sum.to_tuple_field()])
+//                    },
+//                    _ => {
+//                        panic!("No aggregation for Text");
+//                    },
+//                }
+//            },
+//            Avg => {
+//                use DataType::*;
+//                match self.agg_col_type {
+//                    SmallInt => {
+//                        let mut sum = 0u16;
+//                        let mut count = 0u32;
+//                        while let Some(tuple) = self.input.next() {
+//                            sum += tuple.get_parse(self.agg_col)
+//                                .expect("internal bug on bad parse of field");
+//                            count += 1;
+//                        }
+//                        let res = sum as f32 / count as f32;
+//                        Tuple::new(vec![res.to_tuple_field()])
+//                    },
+//                    Integer => {
+//                        let mut sum = 0u32;
+//                        let mut count = 0u32;
+//                        while let Some(tuple) = self.input.next() {
+//                            sum += tuple.get_parse(self.agg_col)
+//                                .expect("internal bug on bad parse of field");
+//                            count += 1;
+//                        }
+//                        let res = sum as f32 / count as f32;
+//                        Tuple::new(vec![res.to_tuple_field()])
+//                    },
+//                    Float => {
+//                        let mut sum = 0f32;
+//                        let mut count = 0u32;
+//                        while let Some(tuple) = self.input.next() {
+//                            sum += tuple.get_parse(self.agg_col)
+//                                .expect("internal bug on bad parse of field");
+//                            count += 1;
+//                        }
+//                        let res = sum / count as f32;
+//                        Tuple::new(vec![res.to_tuple_field()])
+//                    },
+//                    _ => {
+//                        panic!("No aggregation for Text");
+//                    },
+//                }
+//            },
+                _ => panic!("not yet implemented"),
         }
     }
 }
