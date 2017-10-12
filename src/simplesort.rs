@@ -43,7 +43,7 @@ impl<I: DbIterator> SimpleSort<I> {
                     // read it into u16
                     let int1: u16 = FromTupleField::from_tuple_field(field1)
                         .expect("incorrect convert");
-                    let int2: u16 = FromTupleField::from_tuple_field(field1)
+                    let int2: u16 = FromTupleField::from_tuple_field(field2)
                         .expect("incorrect convert");
                     if sort_order == SortOrder::Ascending {
                         int1.cmp(&int2)
@@ -55,7 +55,7 @@ impl<I: DbIterator> SimpleSort<I> {
                     // read it into u32
                     let int1: u32 = FromTupleField::from_tuple_field(field1)
                         .expect("incorrect convert");
-                    let int2: u32 = FromTupleField::from_tuple_field(field1)
+                    let int2: u32 = FromTupleField::from_tuple_field(field2)
                         .expect("incorrect convert");
                     if sort_order == SortOrder::Ascending {
                         int1.cmp(&int2)
@@ -67,7 +67,7 @@ impl<I: DbIterator> SimpleSort<I> {
                     // read it into f32
                     let flt1: f32 = FromTupleField::from_tuple_field(field1)
                         .expect("incorrect convert");
-                    let flt2: f32 = FromTupleField::from_tuple_field(field1)
+                    let flt2: f32 = FromTupleField::from_tuple_field(field2)
                         .expect("incorrect convert");
                     if sort_order == SortOrder::Ascending {
                         flt1.partial_cmp(&flt2).unwrap_or(Ordering::Less)
