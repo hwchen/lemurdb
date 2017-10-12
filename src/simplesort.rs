@@ -4,7 +4,7 @@ use std::io::Cursor;
 use std::marker::PhantomData;
 
 use ::{DbIterator, DataType};
-use ::tuple::Tuple;
+use ::tuple::{Tuple, FromTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SortOrder {
@@ -43,10 +43,10 @@ impl<I: DbIterator> SimpleSort<I> {
             match sort_on_type {
                 DataType::SmallInt => {
                     // read it into u16
-                    let mut rdr = Cursor::new(field1);
-                    let int1 = rdr.read_u16::<BigEndian>().expect("incorrect convert");
-                    let mut rdr = Cursor::new(field2);
-                    let int2 = rdr.read_u16::<BigEndian>().expect("incorrect convert");
+                    let int1: u16 = FromTupleField::from_tuple_field(field1)
+                        .expect("incorrect convert");
+                    let int2: u16 = FromTupleField::from_tuple_field(field1)
+                        .expect("incorrect convert");
                     if sort_order == SortOrder::Ascending {
                         int1.cmp(&int2)
                     } else {
@@ -55,10 +55,10 @@ impl<I: DbIterator> SimpleSort<I> {
                 },
                 DataType::Integer => {
                     // read it into u32
-                    let mut rdr = Cursor::new(field1);
-                    let int1 = rdr.read_u32::<BigEndian>().expect("incorrect convert");
-                    let mut rdr = Cursor::new(field2);
-                    let int2 = rdr.read_u32::<BigEndian>().expect("incorrect convert");
+                    let int1: u32 = FromTupleField::from_tuple_field(field1)
+                        .expect("incorrect convert");
+                    let int2: u32 = FromTupleField::from_tuple_field(field1)
+                        .expect("incorrect convert");
                     if sort_order == SortOrder::Ascending {
                         int1.cmp(&int2)
                     } else {
@@ -67,10 +67,10 @@ impl<I: DbIterator> SimpleSort<I> {
                 },
                 DataType::Float => {
                     // read it into f32
-                    let mut rdr = Cursor::new(field1);
-                    let flt1 = rdr.read_f32::<BigEndian>().expect("incorrect convert");
-                    let mut rdr = Cursor::new(field2);
-                    let flt2 = rdr.read_f32::<BigEndian>().expect("incorrect convert");
+                    let flt1: f32 = FromTupleField::from_tuple_field(field1)
+                        .expect("incorrect convert");
+                    let flt2: f32 = FromTupleField::from_tuple_field(field1)
+                        .expect("incorrect convert");
                     if sort_order == SortOrder::Ascending {
                         flt1.partial_cmp(&flt2).unwrap_or(Ordering::Less)
                     } else {

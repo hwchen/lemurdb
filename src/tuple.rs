@@ -140,8 +140,10 @@ impl Tuple {
     }
 }
 
+// More final version of type conversions.
+// Above will be be refactored to use the below correctly.
 pub trait FromTupleField {
-    fn from_tuple_field(b: &[u8]) -> Result<Self>
+    fn from_tuple_field(field: &[u8]) -> Result<Self>
         where Self: Sized;
 }
 
@@ -195,6 +197,42 @@ impl Tuple {
     {
         let field = &self[col];
         field_parse::<T>(field)
+    }
+}
+
+// Into (opposite of From) TupleRecord
+// Should never fail, so panic on error
+pub trait ToTupleField {
+    fn to_tuple_field(self) -> Vec<u8>;
+}
+
+impl ToTupleField for u16 {
+    fn to_tuple_field(self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.write_u16::<BigEndian>(self).expect("Bad Convert");
+        buf
+    }
+}
+
+impl ToTupleField for u32 {
+    fn to_tuple_field(self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.write_u32::<BigEndian>(self).expect("Bad Convert");
+        buf
+    }
+}
+
+impl ToTupleField for f32 {
+    fn to_tuple_field(self) -> Vec<u8> {
+        let mut buf = Vec::new();
+        buf.write_f32::<BigEndian>(self).expect("Bad Convert");
+        buf
+    }
+}
+
+impl ToTupleField for String {
+    fn to_tuple_field(self) -> Vec<u8> {
+        self.into_bytes()
     }
 }
 

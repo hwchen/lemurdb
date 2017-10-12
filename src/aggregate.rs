@@ -1,7 +1,7 @@
 use byteorder::{WriteBytesExt, BigEndian};
 
 use ::{DbIterator, DataType};
-use ::tuple::Tuple;
+use ::tuple::{Tuple, FromTupleField, ToTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AggregateType {
@@ -73,10 +73,7 @@ impl<I: DbIterator> Aggregate<I> {
                 while let Some(_) = self.input.next() {
                     count += 1;
                 }
-                let mut buf = vec![];
-                buf.write_u32::<BigEndian>(count)
-                    .expect("Internal error writing data");
-                Tuple::new(vec![buf])
+                Tuple::new(vec![count.to_tuple_field()])
             }
             Sum => {
                 use DataType::*;
@@ -87,10 +84,7 @@ impl<I: DbIterator> Aggregate<I> {
                             count += tuple.get_parse(self.aggregate_col)
                                 .expect("internal bug on bad parse of field");
                         }
-                        let mut buf = vec![];
-                        buf.write_u16::<BigEndian>(count)
-                            .expect("Internal error writing data");
-                        Tuple::new(vec![buf])
+                        Tuple::new(vec![count.to_tuple_field()])
                     },
                     Integer => {
                         let mut count = 0u32;
@@ -98,10 +92,7 @@ impl<I: DbIterator> Aggregate<I> {
                             count += tuple.get_parse(self.aggregate_col)
                                 .expect("internal bug on bad parse of field");
                         }
-                        let mut buf = vec![];
-                        buf.write_u32::<BigEndian>(count)
-                            .expect("Internal error writing data");
-                        Tuple::new(vec![buf])
+                        Tuple::new(vec![count.to_tuple_field()])
                     },
                     Float => {
                         let mut count = 0f32;
@@ -109,10 +100,7 @@ impl<I: DbIterator> Aggregate<I> {
                             count += tuple.get_parse(self.aggregate_col)
                                 .expect("internal bug on bad parse of field");
                         }
-                        let mut buf = vec![];
-                        buf.write_f32::<BigEndian>(count)
-                            .expect("Internal error writing data");
-                        Tuple::new(vec![buf])
+                        Tuple::new(vec![count.to_tuple_field()])
                     },
                     _ => {
                         panic!("No aggregation for Text");
