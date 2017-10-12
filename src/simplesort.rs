@@ -1,6 +1,4 @@
-use byteorder::{ReadBytesExt, BigEndian};
 use std::cmp::Ordering;
-use std::io::Cursor;
 use std::marker::PhantomData;
 
 use ::{DbIterator, DataType};

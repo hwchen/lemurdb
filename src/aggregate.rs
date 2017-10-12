@@ -1,13 +1,11 @@
-use byteorder::{WriteBytesExt, BigEndian};
-
 use ::{DbIterator, DataType};
-use ::tuple::{Tuple, FromTupleField, ToTupleField};
+use ::tuple::{Tuple, ToTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AggregateType {
     Count,
     Sum,
-    //Avg,
+    Avg,
     // DistinctCount,
     // Median,
 }
@@ -79,28 +77,69 @@ impl<I: DbIterator> Aggregate<I> {
                 use DataType::*;
                 match self.aggregate_col_type {
                     SmallInt => {
-                        let mut count = 0u16;
+                        let mut sum = 0u16;
                         while let Some(tuple) = self.input.next() {
-                            count += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.aggregate_col)
                                 .expect("internal bug on bad parse of field");
                         }
-                        Tuple::new(vec![count.to_tuple_field()])
+                        Tuple::new(vec![sum.to_tuple_field()])
                     },
                     Integer => {
-                        let mut count = 0u32;
+                        let mut sum = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            count += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.aggregate_col)
                                 .expect("internal bug on bad parse of field");
                         }
-                        Tuple::new(vec![count.to_tuple_field()])
+                        Tuple::new(vec![sum.to_tuple_field()])
                     },
                     Float => {
-                        let mut count = 0f32;
+                        let mut sum = 0f32;
                         while let Some(tuple) = self.input.next() {
-                            count += tuple.get_parse(self.aggregate_col)
+                            sum += tuple.get_parse(self.aggregate_col)
                                 .expect("internal bug on bad parse of field");
                         }
-                        Tuple::new(vec![count.to_tuple_field()])
+                        Tuple::new(vec![sum.to_tuple_field()])
+                    },
+                    _ => {
+                        panic!("No aggregation for Text");
+                    },
+                }
+            },
+            Avg => {
+                use DataType::*;
+                match self.aggregate_col_type {
+                    SmallInt => {
+                        let mut sum = 0u16;
+                        let mut count = 0u32;
+                        while let Some(tuple) = self.input.next() {
+                            sum += tuple.get_parse(self.aggregate_col)
+                                .expect("internal bug on bad parse of field");
+                            count += 1;
+                        }
+                        let res = sum as f32 / count as f32;
+                        Tuple::new(vec![res.to_tuple_field()])
+                    },
+                    Integer => {
+                        let mut sum = 0u32;
+                        let mut count = 0u32;
+                        while let Some(tuple) = self.input.next() {
+                            sum += tuple.get_parse(self.aggregate_col)
+                                .expect("internal bug on bad parse of field");
+                            count += 1;
+                        }
+                        let res = sum as f32 / count as f32;
+                        Tuple::new(vec![res.to_tuple_field()])
+                    },
+                    Float => {
+                        let mut sum = 0f32;
+                        let mut count = 0u32;
+                        while let Some(tuple) = self.input.next() {
+                            sum += tuple.get_parse(self.aggregate_col)
+                                .expect("internal bug on bad parse of field");
+                            count += 1;
+                        }
+                        let res = sum / count as f32;
+                        Tuple::new(vec![res.to_tuple_field()])
                     },
                     _ => {
                         panic!("No aggregation for Text");
