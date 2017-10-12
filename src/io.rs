@@ -1,3 +1,7 @@
+// In order to be able to reset an io node, the node needs to hold
+// the information about the reader
+// TODO all nodes need a rest. But nodes that hold state don't need
+// to call reset on the input node.
 use csv::{ReaderBuilder, StringRecordsIntoIter};
 use std::io::{Read};
 

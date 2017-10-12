@@ -12,6 +12,7 @@ extern crate csv;
 #[macro_use]
 extern crate error_chain;
 
+pub mod aggregate;
 pub mod error;
 pub mod io;
 pub mod limit;
@@ -21,6 +22,7 @@ pub mod selection;
 pub mod simplesort;
 pub mod tuple;
 
+use aggregate::{Aggregate, AggregateType};
 use limit::Limit;
 use projection::Projection;
 use scan::Scan;
@@ -82,6 +84,24 @@ pub trait DbIterator {
             sort_on_col,
             sort_on_type,
             sort_order,
+        )
+    }
+
+    fn aggregate(
+        self,
+        aggregation: AggregateType,
+        aggregate_col: usize,
+        aggregate_col_type: DataType,
+        group_by: Option<usize>,
+    ) -> Aggregate<Self>
+        where Self: Sized
+    {
+        Aggregate::new(
+            self,
+            aggregation,
+            aggregate_col,
+            aggregate_col_type,
+            group_by,
         )
     }
 }

@@ -7,6 +7,7 @@ extern crate lemurdb;
 use lemurdb::{Schema, DataType, DbIterator};
 use lemurdb::io::CsvSource;
 use lemurdb::simplesort::SortOrder;
+use lemurdb::aggregate::{AggregateType};
 use std::fs::File;
 
 mod error {
@@ -50,15 +51,29 @@ fn run() -> Result<()> {
         column_types: vec![Integer, Integer, Float, Integer],
     };
 
+    // Test sort and limit
+//    let mut query = CsvSource::new(f_in, schema.clone())
+//        .simplesort(2, DataType::Float, SortOrder::Descending)
+//        .limit(50);
+//
+//    while let Some(record) = query.next() {
+//        println!("{:?}", record.to_string(&schema));
+//    }
+
+    // test overall aggregate
+    let f_in = File::open("ratings.csv")?;
+    let final_schema = Schema{
+        column_names: vec!["rating count".to_owned()],
+        column_types: vec![Integer],
+    };
     let mut query = CsvSource::new(f_in, schema.clone())
-        .simplesort(2, DataType::Float, SortOrder::Descending)
-        .limit(50);
+        .aggregate(AggregateType::Count, 2, DataType::Float, None);
 
     while let Some(record) = query.next() {
-        println!("{:?}", record.to_string(&schema));
+        println!("{:?}", record.to_string(&final_schema));
     }
 
-//    let f_out = File::create("test.lmr")?;
-//    lemurdb::io::import_from_csv(f_in, f_out)?;
+    // test group by aggregate
+
     Ok(())
 }
