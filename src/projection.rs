@@ -22,6 +22,10 @@ impl <I: DbIterator> DbIterator for Projection<I>
             None
         }
     }
+
+    fn reset(&mut self) {
+        self.input.reset();
+    }
 }
 
 

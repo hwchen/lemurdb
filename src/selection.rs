@@ -18,5 +18,9 @@ impl <I: DbIterator, P> DbIterator for Selection<I,P>
         }
         None
     }
+
+    fn reset(&mut self) {
+        self.input.reset();
+    }
 }
 

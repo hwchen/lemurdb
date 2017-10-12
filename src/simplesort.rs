@@ -1,3 +1,7 @@
+//TODO fix the cloning of buffer
+// tricky because I want to have reference to another field
+// in the struct?
+
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
@@ -14,7 +18,7 @@ pub enum SortOrder {
 
 #[derive(Debug, Clone)]
 pub struct SimpleSort<I> {
-    //buffer: Vec<Tuple>,
+    buffer: Vec<Tuple>,
     //sort_on_col: usize, // currently only sort on one column
     //sort_on_type: DataType, // currently only sort on one column
     output: ::std::vec::IntoIter<Tuple>,
@@ -87,17 +91,22 @@ impl<I: DbIterator> SimpleSort<I> {
             }
         });
         SimpleSort {
+            buffer: buf.clone(),
             output: buf.into_iter(),
             phantom: PhantomData,
         }
     }
 }
 
-impl <I: DbIterator> DbIterator for SimpleSort<I>
+impl<I: DbIterator> DbIterator for SimpleSort<I>
     where Self: Sized,
 {
     fn next(&mut self) -> Option<Tuple> {
         self.output.next()
+    }
+
+    fn reset(& mut self) {
+        self.output = self.buffer.clone().into_iter();
     }
 }
 

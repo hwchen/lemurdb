@@ -8,7 +8,6 @@ use lemurdb::{Schema, DataType, DbIterator};
 use lemurdb::io::CsvSource;
 use lemurdb::simplesort::SortOrder;
 use lemurdb::aggregate::{AggregateType};
-use std::fs::File;
 
 mod error {
     use lemurdb;
@@ -44,15 +43,18 @@ fn main() {
 fn run() -> Result<()> {
     use lemurdb::DataType::*;
 
-    let f_in = File::open("ratings.csv")?;
-
-    let schema = Schema{
+    let rating_schema = Schema{
         column_names: vec!["userId".to_owned(), "movieId".to_owned(), "rating".to_owned(), "timestamp".to_owned()],
         column_types: vec![Integer, Integer, Float, Integer],
     };
 
+    let movie_schema = Schema {
+        column_names: vec!["movieId".to_owned(), "title".to_owned(), "genres".to_owned()],
+        column_types: vec![Integer, Text, Text],
+    };
+
     // Test sort and limit
-//    let mut query = CsvSource::new(f_in, schema.clone())
+//    let mut query = CsvSource::new("ratings.csv".to_owned(), schema.clone())
 //        .simplesort(1, DataType::Integer, SortOrder::Ascending)
 //        .limit(50);
 //
@@ -60,21 +62,54 @@ fn run() -> Result<()> {
 //        println!("{:?}", record.to_string(&schema));
 //    }
 
-    // test overall aggregate
-    let f_in = File::open("ratings.csv")?;
-    let final_schema = Schema{
-        column_names: vec!["movie_id".to_owned(), "rating count".to_owned()],
-        column_types: vec![Integer, Integer],
+    // test aggregate
+//    let final_schema = Schema{
+//        column_names: vec!["movie_id".to_owned(), "rating count".to_owned()],
+//        column_types: vec![Integer, Integer],
+//    };
+//    let mut query = CsvSource::new("ratings.csv".to_owned(), schema.clone())
+//        .simplesort(1, DataType::Integer, SortOrder::Ascending)
+//        .aggregate(AggregateType::Count, 2, DataType::Float, Some(1));
+//
+//    while let Some(record) = query.next() {
+//        println!("{:?}", record.to_string(&final_schema));
+//    }
+
+    // test join
+    let joined_schema = Schema {
+        column_names: vec![
+            "userId".to_owned(),
+            "movieId".to_owned(),
+            "rating".to_owned(),
+            "timestamp".to_owned(),
+            "movieId".to_owned(),
+            "title".to_owned(),
+            "genres".to_owned()
+        ],
+        column_types: vec![
+            Integer,
+            Integer,
+            Float,
+            Integer,
+            Integer,
+            Text,
+            Text,
+        ],
     };
-    let mut query = CsvSource::new(f_in, schema.clone())
-        .simplesort(1, DataType::Integer, SortOrder::Ascending)
-        .aggregate(AggregateType::Count, 2, DataType::Float, Some(1));
+
+    let agg_schema = Schema{
+        column_names: vec!["title".to_owned(), "rating count".to_owned()],
+        column_types: vec![Text, Integer],
+    };
+    let movies = CsvSource::new("test_movies.csv".to_owned(), movie_schema);
+    let mut query = CsvSource::new("test_ratings.csv".to_owned(), rating_schema)
+        .nested_loops_join(movies,1, 0)
+        .simplesort(5, DataType::Text, SortOrder::Ascending)
+        .aggregate(AggregateType::Count, 2, DataType::Float, Some(5));
 
     while let Some(record) = query.next() {
-        println!("{:?}", record.to_string(&final_schema));
+        println!("{:?}", record.to_string(&agg_schema));
     }
-
-    // test group by aggregate
 
     Ok(())
 }

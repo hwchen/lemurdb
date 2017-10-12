@@ -236,3 +236,62 @@ impl ToTupleField for String {
     }
 }
 
+// Tuple Append
+// TODO test
+impl Tuple {
+    pub fn append(mut self, other: &mut Tuple) -> Tuple {
+        let shift = self.data.len();
+        self.data.append(&mut other.data);
+        // shift indexes on second tuple
+        let other_indexes = other.indexes
+            .iter()
+            .map(|i| {
+                *i + shift
+            });
+        self.indexes.extend(other_indexes);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_tuples() -> Vec<Tuple> {
+        let t0 = Tuple::new(
+            vec![
+                b"one".to_vec(),
+                vec![0u8, 2],
+                b"three".to_vec(),
+            ]
+        );
+        let t1 = Tuple::new(
+            vec![
+                b"four".to_vec(),
+                vec![0u8, 66],
+                b"six".to_vec(),
+            ]
+        );
+        vec![t0, t1]
+    }
+
+    #[test]
+    fn test_append() {
+        let tuples = make_tuples();
+        println!("{:?}", tuples[0]);
+        println!("{:?}", tuples[1]);
+        let expected = Tuple {
+            data: vec![
+                111,110,101,0,2,116,104,114,101,101,
+                102,111,117,114,0,66,115,105,120,
+            ],
+            indexes: vec![
+                0,3,5,10,14,16,
+            ],
+        };
+        let t0 = tuples[0].clone();
+        let mut t1 = tuples[1].clone();
+        assert_eq!(expected, t0.append(&mut t1));
+
+    }
+}

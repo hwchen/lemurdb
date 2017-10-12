@@ -19,5 +19,9 @@ impl <I: DbIterator> DbIterator for Limit<I>
             None
         }
     }
+
+    fn reset(&mut self) {
+        self.input.reset();
+    }
 }
 

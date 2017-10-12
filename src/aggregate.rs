@@ -63,6 +63,10 @@ impl <I: DbIterator> DbIterator for Aggregate<I>
             }
         }
     }
+
+    fn reset(&mut self) {
+        self.input.reset();
+    }
 }
 
 impl<I: DbIterator> Aggregate<I> {

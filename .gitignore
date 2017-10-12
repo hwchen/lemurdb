@@ -1,6 +1,7 @@
 /target/
 **/*.rs.bk
 Cargo.lock
+movies.csv
 ratings.csv
 test_ratings.csv
 test.lmr

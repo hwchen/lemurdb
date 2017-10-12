@@ -3,35 +3,53 @@
 // TODO all nodes need a rest. But nodes that hold state don't need
 // to call reset on the input node.
 use csv::{ReaderBuilder, StringRecordsIntoIter};
-use std::io::{Read};
+use std::fs::File;
 
 use ::{DbIterator, Schema};
 use tuple::Tuple;
 
-pub struct CsvSource<R: Read> {
-    input: StringRecordsIntoIter<R>,
+pub struct CsvSource {
+    location: String,
+    output: StringRecordsIntoIter<File>,
     schema: Schema,
 }
 
-impl<R: Read> CsvSource<R> {
-    pub fn new (rdr: R, schema: Schema) -> Self {
+impl CsvSource {
+    pub fn new (location: String, schema: Schema) -> Self {
+
+        let f = File::open(&location).expect("fix this panic");
+
         let rdr = ReaderBuilder::new()
             .has_headers(true)
-            .from_reader(rdr)
+            .from_reader(f)
             .into_records();
 
         CsvSource {
-            input: rdr,
+            location: location,
+            output: rdr,
             schema: schema,
         }
     }
 }
 
-impl<R: Read> DbIterator for CsvSource<R> {
+impl DbIterator for CsvSource {
     fn next(&mut self) -> Option<Tuple> {
-        self.input.next().map(|record| {
-            Tuple::from_stringrecord(record.expect("could not read csv record"), &self.schema).expect("convert to tuple failed")
+        self.output.next().map(|record| {
+            Tuple::from_stringrecord(
+                record.expect("could not read csv record"),
+                &self.schema
+            ).expect("convert to tuple failed")
         })
+    }
+
+    fn reset(&mut self) {
+        // hacky, let's fix this to be consistent with original
+        // initialization
+        let f = File::open(&self.location).expect("fix this panic to rtn err");
+        self.output = ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(f)
+            .into_records();
     }
 }
 
