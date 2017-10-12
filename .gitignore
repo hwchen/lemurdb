@@ -2,6 +2,7 @@
 **/*.rs.bk
 Cargo.lock
 movies.csv
+test_movies.csv
 ratings.csv
 test_ratings.csv
 test.lmr
