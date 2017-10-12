@@ -1,6 +1,6 @@
 // Make macros!
 use ::{DbIterator, DataType};
-use ::tuple::{Tuple, ToTupleField};
+use ::tuple::{self, Tuple, ToTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AggregateType {
@@ -160,14 +160,15 @@ impl<I: DbIterator> Aggregate<I> {
         use AggregateType::*;
         match self.aggregation {
             Count => {
-                // If this fn is called, it means there's at least
-                // one more tuple. Check end condition
-                let mut count = 1u32;
+                let mut count = 0u32;
 
                 // initialize the first time through
                 if self.first_time {
                     self.previous_tuple = self.input.next();
                     self.first_time = false;
+                }
+                if self.previous_tuple.is_some() {
+                    count += 1;
                 }
 
                 while let Some(tuple) = self.input.next() {
@@ -177,8 +178,8 @@ impl<I: DbIterator> Aggregate<I> {
                     // At this moment, previous_tuple is the first
                     // tuple of the next group
                     if tuple[self.group_by.unwrap()] != self.previous_tuple.as_ref().unwrap()[self.group_by.unwrap()] {
-                        self.previous_tuple = Some(tuple);
                         let label = self.previous_tuple.clone().unwrap();
+                        self.previous_tuple = Some(tuple);
                         return Some(Tuple::new(vec![
                             label[self.group_by.unwrap()].to_vec(),
                             count.to_tuple_field(),
