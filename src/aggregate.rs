@@ -1,6 +1,6 @@
 // Make macros!
 use ::{DbIterator, DataType};
-use ::tuple::{self, Tuple, ToTupleField};
+use ::tuple::{Tuple, ToTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AggregateType {
@@ -86,7 +86,7 @@ impl<I: DbIterator> Aggregate<I> {
                     SmallInt => {
                         let mut sum = 0u16;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.agg_col)
+                            sum += tuple.get_parse::<u16>(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                         }
                         Tuple::new(vec![sum.to_tuple_field()])
@@ -94,7 +94,7 @@ impl<I: DbIterator> Aggregate<I> {
                     Integer => {
                         let mut sum = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.agg_col)
+                            sum += tuple.get_parse::<u32>(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                         }
                         Tuple::new(vec![sum.to_tuple_field()])
@@ -102,7 +102,7 @@ impl<I: DbIterator> Aggregate<I> {
                     Float => {
                         let mut sum = 0f32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.agg_col)
+                            sum += tuple.get_parse::<f32>(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                         }
                         Tuple::new(vec![sum.to_tuple_field()])
@@ -119,7 +119,7 @@ impl<I: DbIterator> Aggregate<I> {
                         let mut sum = 0u16;
                         let mut count = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.agg_col)
+                            sum += tuple.get_parse::<u16>(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                             count += 1;
                         }
@@ -130,7 +130,7 @@ impl<I: DbIterator> Aggregate<I> {
                         let mut sum = 0u32;
                         let mut count = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.agg_col)
+                            sum += tuple.get_parse::<u32>(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                             count += 1;
                         }
@@ -141,7 +141,7 @@ impl<I: DbIterator> Aggregate<I> {
                         let mut sum = 0f32;
                         let mut count = 0u32;
                         while let Some(tuple) = self.input.next() {
-                            sum += tuple.get_parse(self.agg_col)
+                            sum += tuple.get_parse::<f32>(self.agg_col)
                                 .expect("internal bug on bad parse of field");
                             count += 1;
                         }
