@@ -5,8 +5,8 @@
 use csv::{ReaderBuilder, StringRecordsIntoIter};
 use std::fs::File;
 
-use ::{DbIterator, Schema};
-use tuple::Tuple;
+use super::{DbIterator, Schema};
+use super::tuple::Tuple;
 
 pub struct CsvSource {
     location: String,

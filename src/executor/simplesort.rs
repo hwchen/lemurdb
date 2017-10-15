@@ -5,8 +5,8 @@
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-use ::{DbIterator, DataType};
-use ::tuple::{Tuple, FromTupleField};
+use super::{DbIterator, DataType};
+use super::tuple::{Tuple, FromTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SortOrder {

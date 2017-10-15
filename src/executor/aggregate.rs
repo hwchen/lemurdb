@@ -1,6 +1,6 @@
 // Make macros!
-use ::{DbIterator, DataType};
-use ::tuple::{Tuple, ToTupleField};
+use super::{DbIterator, DataType};
+use super::tuple::{Tuple, ToTupleField};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AggregateType {
@@ -71,7 +71,7 @@ impl <I: DbIterator> DbIterator for Aggregate<I>
 
 impl<I: DbIterator> Aggregate<I> {
     fn aggregate_all(&mut self) -> Tuple {
-        use AggregateType::*;
+        use self::AggregateType::*;
         match self.aggregation {
             Count => {
                 let mut count = 0u32;
@@ -81,7 +81,7 @@ impl<I: DbIterator> Aggregate<I> {
                 Tuple::new(vec![count.to_tuple_field()])
             }
             Sum => {
-                use DataType::*;
+                use self::DataType::*;
                 match self.agg_col_type {
                     SmallInt => {
                         let mut sum = 0u16;
@@ -113,7 +113,7 @@ impl<I: DbIterator> Aggregate<I> {
                 }
             },
             Avg => {
-                use DataType::*;
+                use self::DataType::*;
                 match self.agg_col_type {
                     SmallInt => {
                         let mut sum = 0u16;
@@ -157,7 +157,7 @@ impl<I: DbIterator> Aggregate<I> {
     }
 
     fn aggregate_group(&mut self) -> Option<Tuple> {
-        use AggregateType::*;
+        use self::AggregateType::*;
         match self.aggregation {
             Count => {
                 let mut count = 0u32;

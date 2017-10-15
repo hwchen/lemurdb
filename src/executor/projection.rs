@@ -1,5 +1,5 @@
-use ::DbIterator;
-use ::tuple::Tuple;
+use super::DbIterator;
+use super::tuple::Tuple;
 
 #[derive(Debug, Clone)]
 pub struct Projection<I> {

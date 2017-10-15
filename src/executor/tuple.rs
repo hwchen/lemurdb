@@ -3,7 +3,7 @@ use csv::StringRecord;
 use std::io::Cursor;
 use std::ops::Index;
 
-use ::{DataType, Schema};
+use super::{DataType, Schema};
 use error::*;
 
 #[derive(Debug, Clone, PartialEq)]

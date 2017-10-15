@@ -1,7 +1,7 @@
 // TODO use predicate instead of equijoin
 // This is an inner equijoin only for now.
-use ::{DbIterator};
-use ::tuple::{Tuple};
+use super::{DbIterator};
+use super::tuple::{Tuple};
 
 #[derive(Debug, Clone)]
 pub struct NestedLoopsJoin<I> {
