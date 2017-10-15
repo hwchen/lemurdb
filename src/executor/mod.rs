@@ -8,6 +8,7 @@ pub mod selection;
 pub mod simplesort;
 pub mod tuple;
 
+use DataType;
 use self::aggregate::{Aggregate, AggregateType};
 use self::limit::Limit;
 use self::nested_loops_join::NestedLoopsJoin;
@@ -16,20 +17,6 @@ use self::scan::Scan;
 use self::selection::Selection;
 use self::simplesort::{SimpleSort, SortOrder};
 use self::tuple::Tuple;
-
-#[derive(Debug, Clone)]
-pub struct Schema {
-    pub column_names: Vec<String>,
-    pub column_types: Vec<DataType>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum DataType {
-    SmallInt, //u16
-    Integer, //u32
-    Float, //f32
-    Text, //String
-}
 
 // The Executor
 

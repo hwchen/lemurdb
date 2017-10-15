@@ -1,5 +1,6 @@
 // Make macros!
-use super::{DbIterator, DataType};
+use DataType;
+use super::DbIterator;
 use super::tuple::{Tuple, ToTupleField};
 
 #[derive(Debug, Clone, PartialEq)]

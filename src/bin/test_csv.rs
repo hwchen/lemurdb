@@ -4,7 +4,8 @@
 extern crate error_chain;
 extern crate lemurdb;
 
-use lemurdb::executor::{Schema, DataType, DbIterator};
+use lemurdb::{Schema, DataType};
+use lemurdb::executor::DbIterator;
 use lemurdb::executor::io::CsvSource;
 use lemurdb::executor::simplesort::SortOrder;
 use lemurdb::executor::aggregate::{AggregateType};
@@ -41,7 +42,7 @@ fn main() {
 }
 
 fn run() -> Result<()> {
-    use lemurdb::executor::DataType::*;
+    use lemurdb::DataType::*;
 
     let rating_schema = Schema{
         column_names: vec!["userId".to_owned(), "movieId".to_owned(), "rating".to_owned(), "timestamp".to_owned()],

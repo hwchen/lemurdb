@@ -11,34 +11,17 @@ use csv;
 use std::io::Read;
 use std::path::Path;
 
+use RelationSchema;
 use error::*;
 
-// TODO figure out where the schema struct should go
-// There can be an overall schema used in many modules?
-// Is this separate from schema fragments used in the
-// executor?
-use ::executor::Schema;
-
 /// import a csv file into db
-pub fn from_csv_file<R>(
+pub fn from_csv<R>(
     rdr: csv::Reader<R>,
-    schema: Schema,
+    schema: RelationSchema, // do i need col names for better
     ) -> Result<()>
 where R: Read,
 {
-    // TODO generate table id internally before importing
-    // for now, just use the csv name.
-    let table_id = Path::new("test.lmr");
-    import_csv_to_disk(rdr, schema, table_id)
-}
-
-fn import_csv_to_disk<R>(
-    rdr: csv::Reader<R>,
-    schema: Schema,
-    db_path: &Path
-    ) -> Result<()>
-where R: Read,
-{
+    // schema contains the tableid
     // for each csv record
     //   read
     //   according to schema, turn it into bytes

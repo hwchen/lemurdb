@@ -5,7 +5,9 @@
 use csv::{ReaderBuilder, StringRecordsIntoIter};
 use std::fs::File;
 
-use super::{DbIterator, Schema};
+// TODO change Schema to ColumnTypes?
+use Schema;
+use super::DbIterator;
 use super::tuple::Tuple;
 
 pub struct CsvSource {
