@@ -14,3 +14,4 @@ extern crate error_chain;
 
 pub mod error;
 pub mod executor;
+pub mod storage;
