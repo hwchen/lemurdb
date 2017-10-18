@@ -123,6 +123,7 @@ impl DbIterator for TestSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use Schema;
 
     //use csv;
 

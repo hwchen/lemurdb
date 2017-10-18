@@ -24,6 +24,7 @@ pub struct Schema {
     pub column_types: ColumnTypes,
 }
 
+#[derive(Debug, Clone)]
 pub struct RelationSchema {
     pub name: String,
     pub id: u32,
