@@ -6,6 +6,9 @@
 //
 // - do a filescan
 // - next up: sort, distinct, aggregations
+//
+// TODO
+// test text fixed len allocation and read
 
 extern crate byteorder;
 extern crate csv;
@@ -39,6 +42,17 @@ pub enum DataType {
     SmallInt, //u16
     Integer, //u32
     Float, //f32
-    Text, //String
+    Text(usize), //String
 }
 
+impl DataType {
+    pub fn bytes_length(&self) -> usize {
+        use DataType::*;
+        match *self {
+            SmallInt => 2,
+            Integer => 4,
+            Float => 4,
+            Text(x) => x,
+        }
+    }
+}

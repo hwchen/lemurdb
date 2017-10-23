@@ -79,7 +79,7 @@ impl<I: DbIterator> SimpleSort<I> {
                         flt2.partial_cmp(&flt1).unwrap_or(Ordering::Less)
                     }
                 },
-                DataType::Text => {
+                DataType::Text(_) => {
                     let s1 = String::from_utf8(field1.to_vec()).expect("bad convert");
                     let s2 = String::from_utf8(field2.to_vec()).expect("bad convert");
                     if sort_order == SortOrder::Ascending {

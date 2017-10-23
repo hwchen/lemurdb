@@ -257,7 +257,7 @@ mod tests {
                 "number_test".to_owned(),
                 "testy".to_owned(),
             ],
-            column_types: vec![Text, SmallInt, Text],
+            column_types: vec![Text(255), SmallInt, Text(255)],
         };
         let tuples = make_tuples();
         assert_eq!(

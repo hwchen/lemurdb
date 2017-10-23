@@ -51,7 +51,7 @@ fn run() -> Result<()> {
 
     let movie_schema = Schema {
         column_names: vec!["movieId".to_owned(), "title".to_owned(), "genres".to_owned()],
-        column_types: vec![Integer, Text, Text],
+        column_types: vec![Integer, Text(255), Text(255)],
     };
 
     // Test sort and limit
@@ -93,19 +93,19 @@ fn run() -> Result<()> {
             Float,
             Integer,
             Integer,
-            Text,
-            Text,
+            Text(255),
+            Text(255),
         ],
     };
 
     let agg_schema = Schema{
         column_names: vec!["title".to_owned(), "rating count".to_owned()],
-        column_types: vec![Text, Integer],
+        column_types: vec![Text(255), Integer],
     };
     let movies = CsvSource::new("test_movies.csv".to_owned(), movie_schema);
     let mut query = CsvSource::new("test_ratings.csv".to_owned(), rating_schema)
         .nested_loops_join(movies,1, 0)
-        .simplesort(5, DataType::Text, SortOrder::Ascending)
+        .simplesort(5, DataType::Text(255), SortOrder::Ascending)
         .aggregate(AggregateType::Count, 2, DataType::Float, Some(5));
 
     while let Some(record) = query.next() {

@@ -4,6 +4,8 @@ use std::io::Cursor;
 use std::ops::Index;
 
 // TODO change Schema to ColumnTypes?
+// TODO remove indexes, all info can be inferred from schema
+//   once Text is allocated as fixed length
 use {DataType, Schema};
 use error::*;
 
@@ -70,9 +72,10 @@ pub fn display_with_type(data: &[u8], data_type: &DataType) -> Result<String> {
             s.push_str(&float.to_string()[..]);
             Ok(s)
         },
-        DataType::Text => {
-            String::from_utf8(data.to_vec())
-                .chain_err(|| "Error converting back to Utf8 for display")
+        DataType::Text(_) => {
+            let s = String::from_utf8(data.to_vec())
+                .chain_err(|| "Error converting back to Utf8 for display")?;
+            Ok(s.trim_right_matches('\0').to_owned())
         },
     }
 }
@@ -99,8 +102,15 @@ pub fn string_to_binary(s: &str, data_type: &DataType) -> Result<Vec<u8>> {
             buf.write_f32::<BigEndian>(float)?;
             Ok(buf)
         },
-        DataType::Text => {
-            Ok(s.as_bytes().to_vec())
+        DataType::Text(x) => {
+            // Requires padding 0 (null) bytes out to text alloc
+            let mut bytes = s.as_bytes().to_vec();
+            let padding_len = x - bytes.len(); // for now panic on underflow
+            let padding = (0..padding_len).map(|_| 0);
+
+            bytes.extend(padding);
+
+            Ok(bytes)
         },
     }
 }
@@ -254,6 +264,7 @@ impl Tuple {
     }
 }
 
+// TODO test text alloc
 #[cfg(test)]
 mod tests {
     use super::*;

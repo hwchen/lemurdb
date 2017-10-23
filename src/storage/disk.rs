@@ -1,5 +1,5 @@
 use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
-use std::io::Write;
+use std::io::{Read, Write, Cursor};
 use std::fs::File;
 use std::path::Path;
 
@@ -36,7 +36,7 @@ impl<W: Write> DiskWriter<W> {
             write_handle: writer,
             write_buffer: Vec::new(),
             block_buffer: [0; 8000],
-            block_upper: 4,
+            block_upper: 4, // leave space for header
             block_lower: 8000,
             schema: schema,
         })
@@ -56,9 +56,15 @@ impl<W: Write> DiskWriter<W> {
         if tuple_len + 2 > free_space {
             self.write_buffer.extend_from_slice(&self.block_buffer);
 
-            // block header?
-            self.block_upper = 2;
+            // block_upper leaves space for header
+            self.block_upper = 4;
             self.block_lower = 8000;
+
+            // can I do this better?
+            // This seems like a weird hack
+            // TODO figure out how to zero out a fixed array.
+            // or just zero out the pointers?
+            (&mut self.block_buffer[..]).write(&[0;8000])?;
         }
 
         // now write to block
@@ -72,20 +78,119 @@ impl<W: Write> DiskWriter<W> {
         // increment pointers and free space pointers write to block
         self.block_upper = self.block_upper + 2;
         self.block_lower = tuple_start;
-        (&mut self.block_buffer[0..2]).write_u16::<BigEndian>(self.block_upper);
-        (&mut self.block_buffer[2..4]).write_u16::<BigEndian>(self.block_lower);
+        (&mut self.block_buffer[0..2]).write_u16::<BigEndian>(self.block_upper)?;
+        (&mut self.block_buffer[2..4]).write_u16::<BigEndian>(self.block_lower)?;
 
         Ok(())
     }
 
-    pub fn flush() -> Result<()> {
+    pub fn flush(&mut self) -> Result<()> {
         // for guaranteeing that all blocks will be written to disk
         // Writes current block to file_buffer, write file_buffer to disk
-        Ok(())
+        // for now, just writes the write_buffer at once to file.
+        // In future, would probably flush at intervals
+        self.write_handle.write_all(&mut self.write_buffer)
+            .chain_err(|| "error flushing")
     }
 }
 
-pub struct DiskReader;
+/// The DiskReader (and block manager) holds:
+///    - handle to the file
+///    - buffer for read io (do this myself for now, to see how it
+///      works, but could use a system BufReader)
+///    - current block buffer
+///    - current block attributes:
+///        - next free spot for record pointer
+///        - next free spot for record
+///
+/// Notes:
+/// - reads in 8k blocks
+pub struct DiskReader<R> {
+    read_handle: R,
+    read_buffer: Vec<u8>, // holds bytes to append to file on disk
+    block_buffer: [u8; 8000], // holds current block being written to
+    record_pointers: Vec<u16>,
+    current_record_pointer: usize, //index into record_pointers
+    schema: RelationSchema,
+    tuple_indexes: Vec<usize>, // TODO can replace schema? don't need
+                                // to hold schema.
+}
+
+impl<R: Read> DiskReader<R> {
+    pub fn new(mut reader: R, schema: RelationSchema) -> Result<Self> {
+        // On initializationg, read first block
+        // for now, just read all to read_buffer (in future, this
+        //   could be variable length buffer, so as not to read
+        //   entire file at once
+
+        let mut read_buffer = Vec::new();
+        reader.read_to_end(&mut read_buffer)?;
+
+        let mut block_buffer = [0u8; 8000];
+
+        {
+            let mut csr = Cursor::new(&read_buffer);
+            csr.read_exact(&mut block_buffer)?;
+        }
+
+        // convert record pointers
+        // this can be done in one step using unsafe
+        let record_pointers_bytes: Vec<u8> = block_buffer
+            .iter()
+            .skip(4)
+            .cloned() // can I avoid?
+            .take_while(|x| *x != 0u8)
+            .collect();
+
+        let record_pointers = record_pointers_bytes.windows(2)
+            .map(|mut bytes|
+                 bytes.read_u16::<BigEndian>()
+                    .chain_err(|| "error converting rec pointer to u16")
+            )
+            .collect::<Result<Vec<u16>>>()?;
+
+        // map schema to indexes of fields in tuple
+        // TODO start here
+        let mut tuple_indexes = Vec::new();
+        let mut offset = 0;
+        for col_type in &schema.column_types {
+            tuple_indexes.push(offset);
+            offset += col_type.bytes_length();
+        }
+
+        Ok(DiskReader {
+            read_handle: reader,
+            read_buffer: read_buffer,
+            //block_number: u64, // used to calculate offset into file. Unneeded for scan?
+            block_buffer: block_buffer,
+            record_pointers: record_pointers,
+            current_record_pointer: 0,
+            schema: schema,
+            tuple_indexes: tuple_indexes,
+        })
+    }
+
+    pub fn next(&mut self) -> Option<Tuple> {
+        // record_pointers needs to hold an iterator instead of a vec
+        // iterator should be Windows?
+        // then map, using schema to determine where offsets should be
+        // ugh, text does have to be a fixed allocation
+        if self.current_record_pointer == self.record_pointers.len()-1 {
+            // TODO load next block here?
+            return None;
+        }
+
+        let start = self.record_pointers[self.current_record_pointer] as usize;
+        let end = self.record_pointers[self.current_record_pointer + 1] as usize;
+        let record = &self.block_buffer[start..end];
+
+        Some(Tuple {
+            data: record.to_vec(),
+            indexes: self.tuple_indexes.clone(), // TODO remove, see tuple module
+        })
+
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -102,7 +207,7 @@ mod tests {
             name: "test".to_owned(),
             id: 11111111,
             column_names: vec!["0".to_owned(), "1".to_owned()],
-            column_types: vec![DataType::SmallInt, DataType::Text],
+            column_types: vec![DataType::SmallInt, DataType::Text(5)],
         }
     }
 
@@ -140,7 +245,7 @@ mod tests {
         // header of 4 bytes (two pointers to free space),
         // plus two pointers to records
         (&mut expected[0..6]).write(&[0x00, 0x08, 0x1F, 0x32, 0x1F, 0x39, 0x1F, 0x32]).unwrap();
-        (&mut expected[7993..8000]).write(&[0, 17, 116, 101, 115, 116, 121, 0, 17, 116, 101, 115, 116, 121]).unwrap();
+        (&mut expected[7986..8000]).write(&[0, 17, 116, 101, 115, 116, 121, 0, 17, 116, 101, 115, 116, 121]).unwrap();
 
         assert_eq!(disk_writer.block_buffer[0..6], expected[0..6]);
         assert_eq!(disk_writer.block_buffer[7993..8000], expected[7993..8000]);
@@ -155,26 +260,72 @@ mod tests {
         // to_tuple
         let tuple_bytes = Tuple::from_stringrecord(
             StringRecord::from(
-                vec!["17", "testy"]
+                vec!["17", "test"]
+            ),
+            &Schema{
+                column_names: schema.column_names,
+                column_types: vec![DataType::SmallInt, DataType::Text(4)],
+            }
+        ).unwrap();
+
+        // Then write tuple to diskwriter 1000 times
+        // (each time adds 8 bytes: 2 byte pointer, 6 byte record
+        // since header is 4 bytes, the 1000 time should not fit in 8000bytes
+        // and there should be an overflow
+        for _ in 0..1000 {
+            disk_writer.add_tuple(tuple_bytes.clone()).unwrap();
+        }
+
+        // for the block, expect one record
+        let mut expected = [0;8000];
+        // header of 4 bytes (two pointers to free space), plus one pointer to record
+        (&mut expected[0..6]).write(&[0x00, 0x06, 0x1F, 0x3a, 0x1F, 0x3a]).unwrap();
+        (&mut expected[7994..8000]).write(&[0, 17, 116, 101, 115, 116]).unwrap();
+
+        assert_eq!(disk_writer.block_buffer[0..6], expected[0..6]);
+        assert_eq!(disk_writer.block_buffer[7993..8000], expected[7993..8000]);
+
+        // for the filebuffer, expect that a block was written to the first 8k bytes
+         assert_eq!(&disk_writer.write_buffer[0..4], &[0x07u8, 0xD2, 0x07, 0xD6][..]);
+        assert_eq!(disk_writer.write_buffer[7994..8000], expected[7994..8000]);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_write_io() {
+        let mut output = Vec::new();
+
+        let schema = generate_relation_schema();
+        let f = Cursor::new(output);
+        let mut disk_writer = DiskWriter::new(f, schema.clone()).unwrap();
+
+        // to_tuple
+        let tuple_bytes = Tuple::from_stringrecord(
+            StringRecord::from(
+                vec!["17", "test"]
             ),
             &Schema{
                 column_names: schema.column_names,
                 column_types:schema.column_types
             }
         ).unwrap();
-        // Then write tuple to diskwriter
-        disk_writer.add_tuple(tuple_bytes).unwrap();
 
-        let mut expected = [0;8000];
-        // header of 4 bytes (two pointers to free space), plus one pointer to record
-        (&mut expected[0..6]).write(&[0x00, 0x06, 0x1F, 0x39, 0x1F, 0x39]).unwrap();
-        (&mut expected[7993..8000]).write(&[0, 17, 116, 101, 115, 116, 121]).unwrap();
+        // Then write tuple to diskwriter 1000 times
+        // (each time adds 8 bytes: 2 byte pointer, 6 byte record
+        // since header is 4 bytes, the 1000 time should not fit in 8000bytes
+        // and there should be an overflow
+        for _ in 0..1000 {
+            disk_writer.add_tuple(tuple_bytes.clone()).unwrap();
+        }
 
-        assert_eq!(disk_writer.block_buffer[0..6], expected[0..6]);
-        assert_eq!(disk_writer.block_buffer[7993..8000], expected[7993..8000]);
-    }
+        // Starting here is different from above.
+        disk_writer.flush().unwrap();
 
-    #[test]
-    fn test_write_io() {
+        // get the underlying vec from the writer,
+        // to use for read.
+        let disk_file = disk_writer.write_handle.into_inner();
+
+        // Now read from the "disk file"
+        
     }
 }
