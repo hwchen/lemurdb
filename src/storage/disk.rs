@@ -1,3 +1,5 @@
+// TODO use memmap for reader
+
 use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
 use std::io::{Read, Write, Cursor};
 use std::fs::File;
@@ -6,6 +8,7 @@ use std::path::Path;
 // TODO: move all these to common module?
 use {RelationSchema, ColumnTypes};
 use executor::tuple::Tuple;
+use executor::DbIterator; //TODO move dbiterator to top level mod?
 use error::*;
 
 /// The DiskWriter (and block manager) holds:
@@ -89,6 +92,8 @@ impl<W: Write> DiskWriter<W> {
         // Writes current block to file_buffer, write file_buffer to disk
         // for now, just writes the write_buffer at once to file.
         // In future, would probably flush at intervals
+
+        self.write_buffer.extend_from_slice(&self.block_buffer);
         self.write_handle.write_all(&mut self.write_buffer)
             .chain_err(|| "error flushing")
     }
@@ -111,13 +116,14 @@ pub struct DiskReader<R> {
     block_buffer: [u8; 8000], // holds current block being written to
     record_pointers: Vec<u16>,
     current_record_pointer: usize, //index into record_pointers
-    schema: RelationSchema,
+    col_types: ColumnTypes,
     tuple_indexes: Vec<usize>, // TODO can replace schema? don't need
                                 // to hold schema.
+    record_length: usize,
 }
 
 impl<R: Read> DiskReader<R> {
-    pub fn new(mut reader: R, schema: RelationSchema) -> Result<Self> {
+    pub fn new(mut reader: R, col_types: ColumnTypes) -> Result<Self> {
         // On initializationg, read first block
         // for now, just read all to read_buffer (in future, this
         //   could be variable length buffer, so as not to read
@@ -142,21 +148,24 @@ impl<R: Read> DiskReader<R> {
             .take_while(|x| *x != 0u8)
             .collect();
 
-        let record_pointers = record_pointers_bytes.windows(2)
-            .map(|mut bytes|
+        let record_pointers = record_pointers_bytes.chunks(2)
+            .map(|mut bytes| {
                  bytes.read_u16::<BigEndian>()
                     .chain_err(|| "error converting rec pointer to u16")
-            )
+            })
             .collect::<Result<Vec<u16>>>()?;
 
+
         // map schema to indexes of fields in tuple
-        // TODO start here
+        // also calculate record length
         let mut tuple_indexes = Vec::new();
         let mut offset = 0;
-        for col_type in &schema.column_types {
+        let mut record_length = 0;
+        for col_type in &col_types {
             tuple_indexes.push(offset);
             offset += col_type.bytes_length();
         }
+        record_length = offset;
 
         Ok(DiskReader {
             read_handle: reader,
@@ -165,30 +174,39 @@ impl<R: Read> DiskReader<R> {
             block_buffer: block_buffer,
             record_pointers: record_pointers,
             current_record_pointer: 0,
-            schema: schema,
+            col_types: col_types,
             tuple_indexes: tuple_indexes,
+            record_length: record_length,
         })
     }
+}
 
-    pub fn next(&mut self) -> Option<Tuple> {
+impl<R:Read> DbIterator for DiskReader<R> {
+    fn next(&mut self) -> Option<Tuple> {
         // record_pointers needs to hold an iterator instead of a vec
         // iterator should be Windows?
         // then map, using schema to determine where offsets should be
         // ugh, text does have to be a fixed allocation
-        if self.current_record_pointer == self.record_pointers.len()-1 {
+        if self.current_record_pointer >= self.record_pointers.len() {
             // TODO load next block here?
             return None;
         }
 
         let start = self.record_pointers[self.current_record_pointer] as usize;
-        let end = self.record_pointers[self.current_record_pointer + 1] as usize;
+        let end = start + self.record_length;
         let record = &self.block_buffer[start..end];
+
+        self.current_record_pointer += 1;
 
         Some(Tuple {
             data: record.to_vec(),
             indexes: self.tuple_indexes.clone(), // TODO remove, see tuple module
         })
 
+    }
+
+    fn reset(&mut self) {
+        //TODO implement
     }
 }
 
@@ -291,41 +309,62 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
-    fn test_write_io() {
-        let mut output = Vec::new();
+    fn test_write_read() {
+        let output = Vec::new();
 
         let schema = generate_relation_schema();
         let f = Cursor::new(output);
         let mut disk_writer = DiskWriter::new(f, schema.clone()).unwrap();
 
         // to_tuple
-        let tuple_bytes = Tuple::from_stringrecord(
+        let tuple_bytes_1 = Tuple::from_stringrecord(
             StringRecord::from(
-                vec!["17", "test"]
+                vec!["17", "tes"]
             ),
             &Schema{
-                column_names: schema.column_names,
-                column_types:schema.column_types
+                column_names: schema.column_names.clone(),
+                column_types:schema.column_types.clone(),
             }
         ).unwrap();
 
-        // Then write tuple to diskwriter 1000 times
-        // (each time adds 8 bytes: 2 byte pointer, 6 byte record
-        // since header is 4 bytes, the 1000 time should not fit in 8000bytes
-        // and there should be an overflow
-        for _ in 0..1000 {
-            disk_writer.add_tuple(tuple_bytes.clone()).unwrap();
-        }
+        let tuple_bytes_2 = Tuple::from_stringrecord(
+            StringRecord::from(
+                vec!["23", "set"]
+            ),
+            &Schema{
+                column_names: schema.column_names.clone(),
+                column_types:schema.column_types.clone(),
+            }
+        ).unwrap();
+
+        disk_writer.add_tuple(tuple_bytes_1.clone()).unwrap();
+        disk_writer.add_tuple(tuple_bytes_2.clone()).unwrap();
 
         // Starting here is different from above.
         disk_writer.flush().unwrap();
 
         // get the underlying vec from the writer,
         // to use for read.
-        let disk_file = disk_writer.write_handle.into_inner();
+        let disk_file = Cursor::new(disk_writer.write_handle.into_inner());
 
         // Now read from the "disk file"
-        
+        let mut reader = DiskReader::new(disk_file, schema.column_types.clone()).unwrap();
+        assert_eq!(
+            reader.next().unwrap(),
+            Tuple {
+                data: vec![0, 17, 116, 101, 115, 0, 0],
+                indexes: vec![0, 2],
+            }
+        );
+
+        assert_eq!(
+            reader.next().unwrap(),
+            Tuple {
+                data: vec![0, 23, 115, 101, 116, 0, 0],
+                indexes: vec![0, 2],
+            }
+        );
+
+        assert_eq!(reader.next(), None);
     }
 }
