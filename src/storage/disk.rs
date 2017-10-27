@@ -3,10 +3,9 @@
 use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
 use std::io::{Read, Write, Seek, SeekFrom};
 use std::fs::File;
-use std::path::Path;
 
 // TODO: move all these to common module?
-use {RelationSchema, ColumnTypes};
+use ColumnTypes;
 use executor::tuple::Tuple;
 use executor::DbIterator; //TODO move dbiterator to top level mod?
 use error::*;
@@ -29,11 +28,10 @@ pub struct DiskWriter<W> {
     block_buffer: [u8; 8000], // holds current block being written to
     block_upper: u16, // pointer to beginning of free space
     block_lower: u16, // pointer to end of free space
-    schema: RelationSchema,
 }
 
 impl<W: Write> DiskWriter<W> {
-    pub fn new(writer: W, schema: RelationSchema) -> Result<Self> {
+    pub fn new(writer: W) -> Result<Self> {
 
         Ok(DiskWriter {
             write_handle: writer,
@@ -41,7 +39,6 @@ impl<W: Write> DiskWriter<W> {
             block_buffer: [0; 8000],
             block_upper: 4, // leave space for header
             block_lower: 8000,
-            schema: schema,
         })
     }
 
@@ -111,19 +108,17 @@ impl<W: Write> DiskWriter<W> {
 /// Notes:
 /// - reads in 8k blocks
 pub struct DiskScan<R> {
-    filepath: String,
     read_handle: R,
     block_buffer: [u8; 8000], // holds current block being written to
     record_pointers: Vec<u16>,
     current_record_pointer: usize, //index into record_pointers
-    col_types: ColumnTypes,
     tuple_indexes: Vec<usize>, // TODO can replace schema? don't need
                                 // to hold schema.
     record_length: usize,
 }
 
 impl<R: Read + Seek> DiskScan<R> {
-    pub fn new(mut reader: R, col_types: ColumnTypes, filepath: String) -> Result<Self> {
+    pub fn new(mut reader: R, col_types: ColumnTypes) -> Result<Self> {
         // On initializationg, read first block
         // for now, just read all to read_buffer (in future, this
         //   could be variable length buffer, so as not to read
@@ -158,20 +153,17 @@ impl<R: Read + Seek> DiskScan<R> {
         // also calculate record length
         let mut tuple_indexes = Vec::new();
         let mut offset = 0;
-        let mut record_length = 0;
         for col_type in &col_types {
             tuple_indexes.push(offset);
             offset += col_type.bytes_length();
         }
-        record_length = offset;
+        let record_length = offset;
 
         Ok(DiskScan {
-            filepath: filepath,
             read_handle: reader,
             block_buffer: block_buffer,
             record_pointers: record_pointers,
             current_record_pointer: 0,
-            col_types: col_types,
             tuple_indexes: tuple_indexes,
             record_length: record_length,
         })
@@ -182,7 +174,7 @@ impl<R: Read + Seek> DiskScan<R> {
 impl DiskScan<File> {
     pub fn from_path(path: &str, col_types: ColumnTypes) -> Result<Self> {
         let f = File::open(path)?;
-        Self::new(f, col_types, path.to_owned())
+        Self::new(f, col_types)
     }
 }
 

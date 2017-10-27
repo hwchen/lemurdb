@@ -9,12 +9,10 @@ pub mod disk;
 
 use csv;
 use std::fs::File;
-use std::io::{Read, Write};
-use std::path::Path;
 
 use ::executor::tuple::Tuple;
 use ::{RelationSchema, Schema};
-use self::disk::{DiskWriter, DiskScan};
+use self::disk::DiskWriter;
 use error::*;
 
 /// import a csv file into db
@@ -31,7 +29,7 @@ pub fn from_csv(
     //
 
     let f_write = File::create(schema.id.to_string())?;
-    let mut wtr = DiskWriter::new(f_write, schema.clone())?; //TODO datatypes instead of schema
+    let mut wtr = DiskWriter::new(f_write)?;
     let mut rdr = csv::Reader::from_path(path)?;
     for result in rdr.records() { // TODO in the future use byterecords
         let record = result?;
