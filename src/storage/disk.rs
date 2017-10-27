@@ -262,7 +262,7 @@ mod tests {
     fn test_block_buffer_one_write() {
         let schema = generate_relation_schema();
         let f = Cursor::new(Vec::new());
-        let mut disk_writer = DiskWriter::new(f, schema.clone()).unwrap();
+        let mut disk_writer = DiskWriter::new(f).unwrap();
 
         // to_tuple
         let tuple_bytes = Tuple::from_stringrecord(
@@ -302,7 +302,7 @@ mod tests {
     fn test_block_buffer_overflow() {
         let schema = generate_relation_schema();
         let f = Cursor::new(Vec::new());
-        let mut disk_writer = DiskWriter::new(f, schema.clone()).unwrap();
+        let mut disk_writer = DiskWriter::new(f).unwrap();
 
         // to_tuple
         let tuple_bytes = Tuple::from_stringrecord(
@@ -343,7 +343,7 @@ mod tests {
 
         let schema = generate_relation_schema();
         let f = Cursor::new(output);
-        let mut disk_writer = DiskWriter::new(f, schema.clone()).unwrap();
+        let mut disk_writer = DiskWriter::new(f).unwrap();
 
         // to_tuple
         let tuple_bytes_1 = Tuple::from_stringrecord(

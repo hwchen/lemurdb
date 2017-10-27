@@ -31,9 +31,16 @@ My main goal was to understand the flow of bytes from the disk through the execu
   - `test_csv` has many commented sections, but has the basic code neede to run the executor.
   - `test_import` is the same, with the addition of an import step before using disk scan. Creates two files. Subsequent runs without import step are about 5x faster than directly from csv.
 
+### running it
+- install rust using rustup.rs
+- `git clone https://github.com/hwchen/lemurdb && cd lemurdb`
+- `cargo test` runs tests
+- `cargo run --bin test_csv` or `cargo run --bin test_import` to run binaries
+
 ### TODO
 
 - Rethink where DbIterator trait, storage modules, and Tuple should live in module hierarchy.
+- Do a code cleanup with comments
 - B+Tree index
 - Plan representation and compiler (and maybe optimizer)
 
