@@ -102,8 +102,8 @@ fn run() -> Result<()> {
         column_names: vec!["title".to_owned(), "rating count".to_owned()],
         column_types: vec![Text(255), Integer],
     };
-    let movies = CsvSource::new("test_movies.csv".to_owned(), movie_schema);
-    let mut query = CsvSource::new("test_ratings.csv".to_owned(), rating_schema)
+    let movies = CsvSource::new("test_data/test_movies.csv".to_owned(), movie_schema);
+    let mut query = CsvSource::new("test_data/test_ratings.csv".to_owned(), rating_schema)
         .nested_loops_join(movies,1, 0)
         .simplesort(5, DataType::Text(255), SortOrder::Ascending)
         .aggregate(AggregateType::Count, 2, DataType::Float, Some(5));
