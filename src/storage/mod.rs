@@ -8,18 +8,20 @@
 pub mod disk;
 
 use csv;
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::Path;
 
-use RelationSchema;
+use ::executor::tuple::Tuple;
+use ::{RelationSchema, Schema};
+use self::disk::{DiskWriter, DiskScan};
 use error::*;
 
 /// import a csv file into db
-pub fn from_csv<R>(
-    rdr: csv::Reader<R>,
+pub fn from_csv(
+    path: &str,
     schema: RelationSchema, // do i need col names for better
     ) -> Result<()>
-where R: Read,
 {
     // schema contains the tableid
     // for each csv record
@@ -27,6 +29,23 @@ where R: Read,
     //   according to schema, turn it into bytes
     //   write to block_write_manger (DiskWriter)
     //
+
+    let f_write = File::create(schema.id.to_string())?;
+    let mut wtr = DiskWriter::new(f_write, schema.clone())?; //TODO datatypes instead of schema
+    let mut rdr = csv::Reader::from_path(path)?;
+    for result in rdr.records() { // TODO in the future use byterecords
+        let record = result?;
+
+        let tuple = Tuple::from_stringrecord(
+            record,
+            &Schema {
+                column_names: vec![],
+                column_types: schema.column_types.clone(),
+            }
+        )?;
+        wtr.add_tuple(tuple)?;
+    }
+    wtr.flush()?;
     Ok(())
 }
 

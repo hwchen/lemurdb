@@ -1,7 +1,7 @@
 // TODO use memmap for reader
 
 use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
-use std::io::{Read, Write, Cursor};
+use std::io::{Read, Write, Seek, SeekFrom};
 use std::fs::File;
 use std::path::Path;
 
@@ -99,7 +99,7 @@ impl<W: Write> DiskWriter<W> {
     }
 }
 
-/// The DiskReader (and block manager) holds:
+/// The DiskScan (and block manager) holds:
 ///    - handle to the file
 ///    - buffer for read io (do this myself for now, to see how it
 ///      works, but could use a system BufReader)
@@ -110,9 +110,9 @@ impl<W: Write> DiskWriter<W> {
 ///
 /// Notes:
 /// - reads in 8k blocks
-pub struct DiskReader<R> {
+pub struct DiskScan<R> {
+    filepath: String,
     read_handle: R,
-    read_buffer: Vec<u8>, // holds bytes to append to file on disk
     block_buffer: [u8; 8000], // holds current block being written to
     record_pointers: Vec<u16>,
     current_record_pointer: usize, //index into record_pointers
@@ -122,35 +122,33 @@ pub struct DiskReader<R> {
     record_length: usize,
 }
 
-impl<R: Read> DiskReader<R> {
-    pub fn new(mut reader: R, col_types: ColumnTypes) -> Result<Self> {
+impl<R: Read + Seek> DiskScan<R> {
+    pub fn new(mut reader: R, col_types: ColumnTypes, filepath: String) -> Result<Self> {
         // On initializationg, read first block
         // for now, just read all to read_buffer (in future, this
         //   could be variable length buffer, so as not to read
         //   entire file at once
 
-        let mut read_buffer = Vec::new();
-        reader.read_to_end(&mut read_buffer)?;
-
         let mut block_buffer = [0u8; 8000];
 
-        {
-            let mut csr = Cursor::new(&read_buffer);
-            csr.read_exact(&mut block_buffer)?;
-        }
+        reader.read_exact(&mut block_buffer)?;
 
         // convert record pointers
         // this can be done in one step using unsafe
+
+        // add 1 to this to get the number of bytes to take
+        let end_record_pointers = (&block_buffer[0..2]).read_u16::<BigEndian>()?;
+
         let record_pointers_bytes: Vec<u8> = block_buffer
             .iter()
             .skip(4)
             .cloned() // can I avoid?
-            .take_while(|x| *x != 0u8)
+            .take(end_record_pointers as usize - 4) // take until
             .collect();
 
         let record_pointers = record_pointers_bytes.chunks(2)
             .map(|mut bytes| {
-                 bytes.read_u16::<BigEndian>()
+                bytes.read_u16::<BigEndian>()
                     .chain_err(|| "error converting rec pointer to u16")
             })
             .collect::<Result<Vec<u16>>>()?;
@@ -167,10 +165,9 @@ impl<R: Read> DiskReader<R> {
         }
         record_length = offset;
 
-        Ok(DiskReader {
+        Ok(DiskScan {
+            filepath: filepath,
             read_handle: reader,
-            read_buffer: read_buffer,
-            //block_number: u64, // used to calculate offset into file. Unneeded for scan?
             block_buffer: block_buffer,
             record_pointers: record_pointers,
             current_record_pointer: 0,
@@ -179,17 +176,29 @@ impl<R: Read> DiskReader<R> {
             record_length: record_length,
         })
     }
+
 }
 
-impl<R:Read> DbIterator for DiskReader<R> {
+impl DiskScan<File> {
+    pub fn from_path(path: &str, col_types: ColumnTypes) -> Result<Self> {
+        let f = File::open(path)?;
+        Self::new(f, col_types, path.to_owned())
+    }
+}
+
+impl<R:Read + Seek> DbIterator for DiskScan<R> {
     fn next(&mut self) -> Option<Tuple> {
         // record_pointers needs to hold an iterator instead of a vec
         // iterator should be Windows?
         // then map, using schema to determine where offsets should be
         // ugh, text does have to be a fixed allocation
         if self.current_record_pointer >= self.record_pointers.len() {
-            // TODO load next block here?
-            return None;
+            // load next block
+            // todo refactor this with the initializing block load?
+            if self.read_handle.read_exact(&mut self.block_buffer).ok().is_none() {
+                return None;
+            }
+            self.init_record_pointers();
         }
 
         let start = self.record_pointers[self.current_record_pointer] as usize;
@@ -206,7 +215,36 @@ impl<R:Read> DbIterator for DiskReader<R> {
     }
 
     fn reset(&mut self) {
-        //TODO implement
+        self.read_handle.seek(SeekFrom::Start(0)).unwrap();
+        self.read_handle.read_exact(&mut self.block_buffer).unwrap();
+        self.init_record_pointers();
+    }
+}
+
+impl<R:Read + Seek> DiskScan<R> {
+    fn init_record_pointers(&mut self) {
+        // convert record pointers
+        // this can be done in one step using unsafe
+
+        // add 1 to this to get the number of bytes to take
+        let end_record_pointers = (&self.block_buffer[0..2]).read_u16::<BigEndian>().unwrap();
+
+        let record_pointers_bytes: Vec<u8> = self.block_buffer
+            .iter()
+            .skip(4)
+            .cloned() // can I avoid?
+            .take(end_record_pointers as usize - 4) // take until
+            .collect();
+
+        let record_pointers = record_pointers_bytes.chunks(2)
+            .map(|mut bytes| {
+                bytes.read_u16::<BigEndian>()
+                    .chain_err(|| "error converting rec pointer to u16")
+            })
+            .collect::<Result<Vec<u16>>>().unwrap();
+
+        self.record_pointers = record_pointers;
+        self.current_record_pointer = 0;
     }
 }
 
@@ -348,7 +386,7 @@ mod tests {
         let disk_file = Cursor::new(disk_writer.write_handle.into_inner());
 
         // Now read from the "disk file"
-        let mut reader = DiskReader::new(disk_file, schema.column_types.clone()).unwrap();
+        let mut reader = DiskScan::new(disk_file, schema.column_types.clone()).unwrap();
         assert_eq!(
             reader.next().unwrap(),
             Tuple {
