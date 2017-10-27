@@ -49,7 +49,7 @@ impl<W: Write> DiskWriter<W> {
         // - if yes, write to block
         // - if no, write block to file_buffer and 
         let tuple_len = tuple.data.len() as u16; // assume len less than block
-        // TODO should I read from block or hold in struct?
+
         let free_space = self.block_lower - self.block_upper;
 
         // tuple len plus the one u16 pointer need to fit in block
@@ -112,8 +112,7 @@ pub struct DiskScan<R> {
     block_buffer: [u8; 8000], // holds current block being written to
     record_pointers: Vec<u16>,
     current_record_pointer: usize, //index into record_pointers
-    tuple_indexes: Vec<usize>, // TODO can replace schema? don't need
-                                // to hold schema.
+    tuple_indexes: Vec<usize>,
     record_length: usize,
 }
 
@@ -201,7 +200,7 @@ impl<R:Read + Seek> DbIterator for DiskScan<R> {
 
         Some(Tuple {
             data: record.to_vec(),
-            indexes: self.tuple_indexes.clone(), // TODO remove, see tuple module
+            indexes: self.tuple_indexes.clone(),
         })
 
     }

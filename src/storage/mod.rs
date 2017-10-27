@@ -3,7 +3,6 @@
 //! - module for handling binary disk storage
 //! - module for buffering a file scan
 //! - convenience functions for importing from csv
-//! TODO figure out whether or not Text should have a fixed len
 
 pub mod disk;
 

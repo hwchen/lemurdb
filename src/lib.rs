@@ -1,14 +1,5 @@
 #![recursion_limit = "1024"]
-// TODO:
-// - constrain to tuple type?
-// - relation metadata
-// - figure out how to handle tuples
-//
-// - do a filescan
-// - next up: sort, distinct, aggregations
-//
-// TODO
-// test text fixed len allocation and read
+// TODO change unsigned ints to signed
 
 extern crate byteorder;
 extern crate csv;
@@ -21,6 +12,7 @@ pub mod storage;
 
 
 // TODO this will be deprecated
+// Each node only needs to know column types
 #[derive(Debug, Clone)]
 pub struct Schema {
     pub column_names: Vec<String>,
